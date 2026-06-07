@@ -136,6 +136,12 @@ public class TrackMapViewFragment extends GenericViewFragment {
                 LOG.debug("Track map became idle");
                 if (basemapAvailable && statusEphemeral) hideStatus();
             });
+            // addOnDidBecomeIdleListener 在部分机型上不稳定，再追加一个 RenderingMap 监听做兜底：
+            // fully=true 代表所有可见瓦片已完成渲染，等价于「瓦片到位」。
+            mapView.addOnDidFinishRenderingMapListener(fully -> {
+                LOG.info("Track map finished rendering, fully={}", fully);
+                if (fully && basemapAvailable && statusEphemeral) hideStatus();
+            });
             mapView.getMapAsync(map -> {
                 mapLibreMap = map;
                 moveCameraToInitialPosition();

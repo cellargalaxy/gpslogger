@@ -13,12 +13,18 @@ import android.content.Context;
 import com.mendhak.gpslogger.BuildConfig;
 import com.mendhak.gpslogger.tracker.TrackerPreferenceNames;
 
+import com.mendhak.gpslogger.common.slf4j.Logs;
+
 import org.maplibre.android.module.http.HttpRequestUtil;
+import org.slf4j.Logger;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.Response;
 
 public final class OpenStreetMapStyle {
+
+    private static final Logger LOG = Logs.of(OpenStreetMapStyle.class);
 
     public static final String TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 
@@ -85,18 +91,35 @@ public final class OpenStreetMapStyle {
             if (httpClientConfigured) return;
             try {
                 final String userAgent = buildUserAgent(context.getApplicationContext());
+                // 启用 MapLibre 内置 HTTP 日志，便于 logcat 观察底层瓦片请求。
+                try { HttpRequestUtil.setLogEnabled(true); } catch (Throwable ignore) {}
                 OkHttpClient client = new OkHttpClient.Builder()
                         .addInterceptor(chain -> {
-                            Request request = chain.request().newBuilder()
-                                    .header("User-Agent", userAgent)
-                                    .build();
-                            return chain.proceed(request);
+                            Request request = chain.request();
+                            try {
+                                Request modified = request.newBuilder()
+                                        .header("User-Agent", userAgent)
+                                        .build();
+                                long t0 = System.currentTimeMillis();
+                                Response response = chain.proceed(modified);
+                                long elapsed = System.currentTimeMillis() - t0;
+                                LOG.info("MapLibre HTTP {} {} -> {} ({} ms)",
+                                        request.method(), request.url(),
+                                        response.code(), elapsed);
+                                return response;
+                            } catch (Throwable t) {
+                                LOG.warn("MapLibre HTTP {} {} threw {}",
+                                        request.method(), request.url(), t.toString());
+                                throw t;
+                            }
                         })
                         .build();
                 HttpRequestUtil.setOkHttpClient(client);
                 httpClientConfigured = true;
-            } catch (Throwable ignore) {
+                LOG.info("MapLibre OkHttp client installed, UA={}", userAgent);
+            } catch (Throwable t) {
                 // 地图可用性优先；User-Agent 配置失败不应导致轨迹地图闪退。
+                LOG.warn("MapLibre OkHttp client install failed", t);
             }
         }
     }
