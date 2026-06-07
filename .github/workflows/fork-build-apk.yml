@@ -18,10 +18,11 @@
 #   并解开 build-release 对 build-debug 的依赖。
 #
 # 触发条件之间的关系：
-# - push（除 tag 外）         -> 构建 debug APK
-# - pull_request               -> 构建 debug APK
-# - push tag v*                -> 构建 debug + release APK + 创建 GitHub Release
-# - workflow_dispatch          -> 由用户参数决定是否同时构建 release
+# - push 到非 master 分支             -> 仅构建 debug APK（artifact）
+# - pull_request                       -> 仅构建 debug APK（artifact）
+# - push 到 master                     -> debug + release APK，并刷新固定的 `nightly` 预发布 Release
+# - push tag v*                        -> debug + release APK，创建正式 GitHub Release
+# - workflow_dispatch + build_release  -> debug + release APK 作为 artifact，不创建 Release
 
 name: Fork Build APK
 
@@ -105,7 +106,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  # 只在 tag 或手动触发且选了 release 时跑。
+  # 三种触发：tag、master push、手动触发选了 release。
   # 与 build-debug 独立（不再 needs），避免 debug 任何步骤失败连带导致 release 不跑、Release 无 APK。
   # 没有签名 secrets 也能跑，只是 release APK 不带签名（Android 装机仍会拒绝，
   # 用户应用作 CI 产物或测试包）。
@@ -114,6 +115,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.build_release == 'true')
     permissions:
       contents: write
@@ -178,19 +180,32 @@ jobs:
           APK_PATH=$(find gpslogger/build/outputs/apk/release -maxdepth 2 -name "*.apk" -print | head -1)
           test -n "$APK_PATH"
           VERSION=$(grep -E "versionName\s+\"?[0-9A-Za-z._-]+\"?" gpslogger/build.gradle | head -1 | sed -E 's/.*versionName\s+"([^"]+)".*/\1/')
-          TAG_NAME="${GITHUB_REF##*/}"
+          SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          # 区分发布模式：tag / nightly / dispatch
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            MODE="tag"
+            LABEL="${GITHUB_REF##*/}"
+          elif [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/master" ]]; then
+            MODE="nightly"
+            LABEL="nightly-${SHORT_SHA}"
+          else
+            MODE="dispatch"
+            LABEL="manual-${SHORT_SHA}"
+          fi
           if [ "${{ steps.keystore.outputs.have_keystore }}" = "true" ]; then
             SUFFIX=""
           else
             SUFFIX="-unsigned"
           fi
-          TARGET="gpslogger-travel-release-${VERSION}-${TAG_NAME}${SUFFIX}.apk"
+          TARGET="gpslogger-travel-release-${VERSION}-${LABEL}${SUFFIX}.apk"
           cp "$APK_PATH" "$TARGET"
           ( cd "$(dirname "$TARGET")" && sha256sum "$(basename "$TARGET")" > "$(basename "$TARGET").SHA256" )
           echo "apk_path=$TARGET" >> "$GITHUB_OUTPUT"
           echo "sha_path=$TARGET.SHA256" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Upload release APK artifact
         uses: actions/upload-artifact@v4
