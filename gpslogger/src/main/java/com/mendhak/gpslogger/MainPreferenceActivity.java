@@ -141,6 +141,11 @@ public class MainPreferenceActivity extends AppCompatActivity {
                 setTitle(R.string.sftp_setup_title);
                 preferenceFragmentCompat = new SFTPSettingsFragment();
                 break;
+            // Travel/hiking 改造：旅行模式设置入口。
+            case PREFERENCE_FRAGMENTS.TRACKER:
+                setTitle(R.string.tracker_settings_title);
+                preferenceFragmentCompat = new com.mendhak.gpslogger.tracker.ui.TrackerSettingsFragment();
+                break;
         }
 
         getSupportFragmentManager().beginTransaction().replace(R.id.content_frame, preferenceFragmentCompat).commit();
@@ -190,6 +195,8 @@ public class MainPreferenceActivity extends AppCompatActivity {
         public static final String OWNCLOUD = "OwnCloudAuthorizationFragment";
         public static final String OSM = "OSMAuthorizationFragment";
         public static final String SFTP = "SFTPSettingsFragment";
+        // Travel/hiking 改造：旅行模式设置 fragment key
+        public static final String TRACKER = "TrackerSettingsFragment";
     }
 
 }

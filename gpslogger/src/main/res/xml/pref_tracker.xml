@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:title="@string/tracker_settings_title">
+
+    <PreferenceCategory
+        android:title="@string/tracker_local_cache_title"
+        app:iconSpaceReserved="false">
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="local_track_cache_enabled"
+            android:title="@string/tracker_local_cache_enabled_title"
+            android:summary="@string/tracker_local_cache_enabled_summary"
+            app:iconSpaceReserved="false" />
+
+        <ListPreference
+            android:defaultValue="24"
+            android:key="local_track_cache_retention_hours"
+            android:entries="@array/tracker_retention_entries"
+            android:entryValues="@array/tracker_retention_values"
+            android:title="@string/tracker_local_cache_retention_title"
+            android:summary="@string/tracker_local_cache_retention_summary"
+            android:dialogTitle="@string/tracker_local_cache_retention_title"
+            app:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="tracker_clear_local_track_cache"
+            android:title="@string/tracker_local_cache_clear_title"
+            android:summary="@string/tracker_local_cache_clear_summary"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/tracker_track_map_title"
+        app:iconSpaceReserved="false">
+
+        <ListPreference
+            android:defaultValue="15"
+            android:key="track_map_segment_minutes"
+            android:entries="@array/tracker_segment_entries"
+            android:entryValues="@array/tracker_segment_values"
+            android:title="@string/tracker_track_map_segment_title"
+            android:summary="@string/tracker_track_map_segment_summary"
+            android:dialogTitle="@string/tracker_track_map_segment_title"
+            app:iconSpaceReserved="false" />
+
+        <ListPreference
+            android:defaultValue="24"
+            android:key="track_map_time_range_hours"
+            android:entries="@array/tracker_retention_entries"
+            android:entryValues="@array/tracker_retention_values"
+            android:title="@string/tracker_track_map_range_title"
+            android:summary="@string/tracker_track_map_range_summary"
+            android:dialogTitle="@string/tracker_track_map_range_title"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/tracker_outbox_title"
+        app:iconSpaceReserved="false">
+
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="customurl_outbox_enabled"
+            android:title="@string/tracker_outbox_enabled_title"
+            android:summary="@string/tracker_outbox_enabled_summary"
+            app:iconSpaceReserved="false" />
+
+        <EditTextPreference
+            android:defaultValue="16"
+            android:key="customurl_outbox_max_attempts"
+            android:title="@string/tracker_outbox_max_attempts_title"
+            android:summary="@string/tracker_outbox_max_attempts_summary"
+            android:inputType="number"
+            app:iconSpaceReserved="false" />
+
+        <EditTextPreference
+            android:defaultValue="200000"
+            android:key="customurl_outbox_max_rows"
+            android:title="@string/tracker_outbox_max_rows_title"
+            android:summary="@string/tracker_outbox_max_rows_summary"
+            android:inputType="number"
+            app:iconSpaceReserved="false" />
+
+        <EditTextPreference
+            android:defaultValue="30"
+            android:key="customurl_outbox_keep_failed_days"
+            android:title="@string/tracker_outbox_keep_failed_days_title"
+            android:summary="@string/tracker_outbox_keep_failed_days_summary"
+            android:inputType="number"
+            app:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="tracker_open_outbox_queue"
+            android:title="@string/tracker_outbox_queue_title"
+            android:summary="@string/tracker_outbox_queue_summary"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/tracker_offline_map_title"
+        app:iconSpaceReserved="false">
+
+        <EditTextPreference
+            android:defaultValue="1024"
+            android:key="offline_map_max_mb"
+            android:title="@string/tracker_offline_map_max_mb_title"
+            android:summary="@string/tracker_offline_map_max_mb_summary"
+            android:inputType="number"
+            app:iconSpaceReserved="false" />
+
+        <EditTextPreference
+            android:defaultValue="https://demotiles.maplibre.org/style.json"
+            android:key="offline_map_style_url"
+            android:title="@string/tracker_offline_map_style_url_title"
+            android:summary="@string/tracker_offline_map_style_url_summary"
+            app:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="tracker_open_offline_map_manager"
+            android:title="@string/tracker_offline_map_manage_title"
+            android:summary="@string/tracker_offline_map_manage_summary"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

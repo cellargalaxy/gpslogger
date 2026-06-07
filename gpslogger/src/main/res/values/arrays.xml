@@ -60,6 +60,8 @@
         <item>@string/view_big</item>
         <item>@string/view_log</item>
         <item>@string/view_annotation</item>
+        <!-- Travel/hiking 改造：新增的「轨迹地图」视图。位置放末尾以减少 upstream merge 冲突。 -->
+        <item>@string/view_track_map</item>
     </string-array>
 
 

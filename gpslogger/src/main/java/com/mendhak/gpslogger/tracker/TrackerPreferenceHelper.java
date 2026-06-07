@@ -1,0 +1,112 @@
+/*
+ * Travel/hiking 改造：所有新增偏好的读写集中在这里，避免污染上游 PreferenceHelper。
+ * 读 SharedPreferences 时复用 androidx.preference 的默认实例，与既有项目一致。
+ */
+package com.mendhak.gpslogger.tracker;
+
+import android.content.SharedPreferences;
+import androidx.preference.PreferenceManager;
+
+import com.mendhak.gpslogger.common.AppSettings;
+
+public final class TrackerPreferenceHelper {
+
+    private static volatile TrackerPreferenceHelper INSTANCE;
+
+    private final SharedPreferences prefs;
+
+    private TrackerPreferenceHelper() {
+        this.prefs = PreferenceManager.getDefaultSharedPreferences(AppSettings.getInstance());
+    }
+
+    public static TrackerPreferenceHelper getInstance() {
+        if (INSTANCE == null) {
+            synchronized (TrackerPreferenceHelper.class) {
+                if (INSTANCE == null) {
+                    INSTANCE = new TrackerPreferenceHelper();
+                }
+            }
+        }
+        return INSTANCE;
+    }
+
+    private int parseIntSafely(String value, int fallback) {
+        if (value == null) return fallback;
+        try { return Integer.parseInt(value.trim()); }
+        catch (NumberFormatException e) { return fallback; }
+    }
+
+    private int getIntOrString(String key, int fallback) {
+        // ListPreference 用 entryValues 存的是字符串，普通 EditTextPreference 也可能是字符串，
+        // 直接 getInt 会抛 ClassCastException。统一从字符串解析回退到 int。
+        Object raw = prefs.getAll().get(key);
+        if (raw instanceof Integer) return (Integer) raw;
+        if (raw instanceof String) return parseIntSafely((String) raw, fallback);
+        if (raw instanceof Long) return ((Long) raw).intValue();
+        return fallback;
+    }
+
+    public boolean isLocalTrackCacheEnabled() {
+        return prefs.getBoolean(TrackerPreferenceNames.LOCAL_TRACK_CACHE_ENABLED, true);
+    }
+
+    public int getLocalTrackCacheRetentionHours() {
+        return getIntOrString(TrackerPreferenceNames.LOCAL_TRACK_CACHE_RETENTION_HOURS,
+                TrackerPreferenceNames.DEFAULT_LOCAL_TRACK_CACHE_RETENTION_HOURS);
+    }
+
+    public long getLocalTrackCacheRetentionMillis() {
+        long hours = getLocalTrackCacheRetentionHours();
+        if (hours <= 0) hours = TrackerPreferenceNames.DEFAULT_LOCAL_TRACK_CACHE_RETENTION_HOURS;
+        return hours * 3600L * 1000L;
+    }
+
+    public int getTrackMapSegmentMinutes() {
+        int m = getIntOrString(TrackerPreferenceNames.TRACK_MAP_SEGMENT_MINUTES,
+                TrackerPreferenceNames.DEFAULT_TRACK_MAP_SEGMENT_MINUTES);
+        // 枚举范围 5/10/15/30/60
+        if (m != 5 && m != 10 && m != 15 && m != 30 && m != 60) {
+            return TrackerPreferenceNames.DEFAULT_TRACK_MAP_SEGMENT_MINUTES;
+        }
+        return m;
+    }
+
+    public int getTrackMapTimeRangeHours() {
+        return getIntOrString(TrackerPreferenceNames.TRACK_MAP_TIME_RANGE_HOURS,
+                TrackerPreferenceNames.DEFAULT_TRACK_MAP_TIME_RANGE_HOURS);
+    }
+
+    public boolean isCustomUrlOutboxEnabled() {
+        return prefs.getBoolean(TrackerPreferenceNames.CUSTOMURL_OUTBOX_ENABLED, true);
+    }
+
+    public int getCustomUrlOutboxMaxAttempts() {
+        int v = getIntOrString(TrackerPreferenceNames.CUSTOMURL_OUTBOX_MAX_ATTEMPTS,
+                TrackerPreferenceNames.DEFAULT_CUSTOMURL_OUTBOX_MAX_ATTEMPTS);
+        return Math.max(1, v);
+    }
+
+    public int getCustomUrlOutboxMaxRows() {
+        int v = getIntOrString(TrackerPreferenceNames.CUSTOMURL_OUTBOX_MAX_ROWS,
+                TrackerPreferenceNames.DEFAULT_CUSTOMURL_OUTBOX_MAX_ROWS);
+        return Math.max(1000, v);
+    }
+
+    public int getCustomUrlOutboxKeepFailedDays() {
+        return getIntOrString(TrackerPreferenceNames.CUSTOMURL_OUTBOX_KEEP_FAILED_DAYS,
+                TrackerPreferenceNames.DEFAULT_CUSTOMURL_OUTBOX_KEEP_FAILED_DAYS);
+    }
+
+    public int getOfflineMapMaxMb() {
+        return getIntOrString(TrackerPreferenceNames.OFFLINE_MAP_MAX_MB,
+                TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_MAX_MB);
+    }
+
+    public String getOfflineMapStyleUrl() {
+        String s = prefs.getString(TrackerPreferenceNames.OFFLINE_MAP_STYLE_URL,
+                TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_STYLE_URL);
+        return s == null || s.trim().isEmpty()
+                ? TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_STYLE_URL
+                : s.trim();
+    }
+}

@@ -503,4 +503,96 @@
     <string name="only_log_if_significant_motion_title">Only log if there is significant motion</string>
     <string name="only_log_if_significant_motion_summary">Only log if significant activity is detected such as walking, biking, driving. Significant motion is determined by your OS.</string>
 
+    <!-- Travel/hiking 改造：新增字符串。集中放在文件末尾，便于 merge upstream master 时减少冲突。 -->
+    <string name="view_track_map">Track Map</string>
+
+    <string name="tracker_settings_title">Travel mode</string>
+    <string name="tracker_settings_summary">Local track cache, offline map, Custom URL outbox</string>
+
+    <string name="tracker_local_cache_title">Local track cache</string>
+    <string name="tracker_local_cache_enabled_title">Enable local track cache</string>
+    <string name="tracker_local_cache_enabled_summary">Store recent GPS points on this device only, for offline track lookup and the Track Map view.</string>
+    <string name="tracker_local_cache_retention_title">Retention</string>
+    <string name="tracker_local_cache_retention_summary">Points older than this are automatically deleted.</string>
+    <string name="tracker_local_cache_clear_title">Clear local track cache</string>
+    <string name="tracker_local_cache_clear_summary">Delete all locally cached points immediately.</string>
+    <string name="tracker_local_cache_cleared">Local track cache cleared</string>
+
+    <string name="tracker_track_map_title">Track map</string>
+    <string name="tracker_track_map_segment_title">Segment interval</string>
+    <string name="tracker_track_map_segment_summary">Color the track by time segments aligned to natural clock boundaries.</string>
+    <string name="tracker_track_map_range_title">Default time range</string>
+    <string name="tracker_track_map_range_summary">How much history the Track Map view displays by default.</string>
+
+    <string name="tracker_outbox_title">Custom URL outbox</string>
+    <string name="tracker_outbox_enabled_title">Use durable outbox queue</string>
+    <string name="tracker_outbox_enabled_summary">Queue Custom URL requests in a local SQLite outbox with its own retry policy, instead of the built-in 3-attempt limit.</string>
+    <string name="tracker_outbox_max_attempts_title">Max attempts per point</string>
+    <string name="tracker_outbox_max_attempts_summary">After this many failures a request is marked Failed and waits for manual retry.</string>
+    <string name="tracker_outbox_max_rows_title">Outbox capacity</string>
+    <string name="tracker_outbox_max_rows_summary">Maximum number of queued requests. The oldest pending rows are dropped when exceeded.</string>
+    <string name="tracker_outbox_keep_failed_days_title">Keep failed requests</string>
+    <string name="tracker_outbox_keep_failed_days_summary">Days to keep Failed rows before automatic cleanup.</string>
+    <string name="tracker_outbox_queue_title">View outbox queue</string>
+    <string name="tracker_outbox_queue_summary">See pending, in-flight, and failed Custom URL requests; retry or clear them.</string>
+
+    <string name="tracker_outbox_queue_activity_title">Outbox queue</string>
+    <string name="tracker_outbox_summary_format">Total: %1$d   Pending: %2$d   Failed: %3$d</string>
+    <string name="tracker_outbox_retry_all_failed">Retry all failed</string>
+    <string name="tracker_outbox_clear_all">Clear all</string>
+    <string name="tracker_outbox_requeued_format">Requeued %1$d failed requests</string>
+    <string name="tracker_outbox_cleared_format">Cleared %1$d requests</string>
+
+    <string name="tracker_offline_map_title">Offline map</string>
+    <string name="tracker_offline_map_max_mb_title">Offline map cache size (MB)</string>
+    <string name="tracker_offline_map_max_mb_summary">Soft cap for the offline map data on this device.</string>
+    <string name="tracker_offline_map_style_url_title">Map style URL</string>
+    <string name="tracker_offline_map_style_url_summary">A MapLibre / MapTiler style JSON URL.</string>
+    <string name="tracker_offline_map_manage_title">Manage offline map regions</string>
+    <string name="tracker_offline_map_manage_summary">List, download, and delete offline map regions.</string>
+    <string name="tracker_offline_map_activity_title">Offline map regions</string>
+    <string name="tracker_offline_map_no_sdk">Offline map engine not configured. Set up a MapLibre style URL or install the engine first.</string>
+    <string name="tracker_offline_map_download_current_view">Download current view</string>
+    <string name="tracker_offline_map_delete_all">Delete all offline data</string>
+
+    <string name="tracker_track_map_empty">No track points in the selected time range.</string>
+    <string name="tracker_track_map_no_basemap">Base map tiles unavailable for this area. Showing track only.</string>
+    <string name="tracker_track_map_refresh">Refresh</string>
+    <string name="tracker_track_map_locate">Center on latest point</string>
+    <string name="tracker_track_map_fit">Fit track bounds</string>
+
+    <string-array name="tracker_segment_entries">
+        <item>5 minutes</item>
+        <item>10 minutes</item>
+        <item>15 minutes</item>
+        <item>30 minutes</item>
+        <item>60 minutes</item>
+    </string-array>
+    <string-array name="tracker_segment_values">
+        <item>5</item>
+        <item>10</item>
+        <item>15</item>
+        <item>30</item>
+        <item>60</item>
+    </string-array>
+
+    <string-array name="tracker_retention_entries">
+        <item>1 hour</item>
+        <item>3 hours</item>
+        <item>6 hours</item>
+        <item>12 hours</item>
+        <item>24 hours</item>
+        <item>3 days</item>
+        <item>7 days</item>
+    </string-array>
+    <string-array name="tracker_retention_values">
+        <item>1</item>
+        <item>3</item>
+        <item>6</item>
+        <item>12</item>
+        <item>24</item>
+        <item>72</item>
+        <item>168</item>
+    </string-array>
+
 </resources>

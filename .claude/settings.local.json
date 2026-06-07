@@ -6,7 +6,13 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:maplibre.org)",
       "WebSearch",
-      "WebFetch(domain:gpslogger.app)"
+      "WebFetch(domain:gpslogger.app)",
+      "Bash(java -version)",
+      "Bash(apt list *)",
+      "Bash(/app/jbr/bin/java -version)",
+      "Bash(JAVA_HOME=/app/jbr PATH=/app/jbr/bin:/usr/bin:/bin /bin/bash *)",
+      "Bash(JAVA_HOME=/app/jbr /app/jbr/bin/java -version)",
+      "Read(//app/jbr/lib/**)"
     ]
   }
 }

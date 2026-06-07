@@ -842,6 +842,8 @@ public class GpsMainActivity extends AppCompatActivity
         materialDrawer.addItem(GpsLoggerDrawerItem.newPrimary(R.string.pref_general_title, R.string.pref_general_summary, R.drawable.settings, 1000));
         materialDrawer.addItem(GpsLoggerDrawerItem.newPrimary(R.string.pref_logging_title, R.string.pref_logging_summary, R.drawable.loggingsettings, 1001));
         materialDrawer.addItem(GpsLoggerDrawerItem.newPrimary(R.string.pref_performance_title, R.string.pref_performance_summary, R.drawable.performance, 1002));
+        // Travel/hiking 改造：新增旅行模式设置入口。drawable 复用 performance 图标，避免引入新资源。
+        materialDrawer.addItem(GpsLoggerDrawerItem.newPrimary(R.string.tracker_settings_title, R.string.tracker_settings_summary, R.drawable.performance, 1030));
         materialDrawer.addItem(new DividerDrawerItem());
 
         materialDrawer.addItem(GpsLoggerDrawerItem.newPrimary(R.string.pref_autosend_title, R.string.pref_autosend_summary, R.drawable.autosend, 1003));
@@ -904,6 +906,10 @@ public class GpsMainActivity extends AppCompatActivity
                         break;
                     case 1020:
                         launchPreferenceScreen(MainPreferenceActivity.PREFERENCE_FRAGMENTS.CUSTOMURL);
+                        break;
+                    // Travel/hiking 改造：旅行模式 drawer 入口。
+                    case 1030:
+                        launchPreferenceScreen(MainPreferenceActivity.PREFERENCE_FRAGMENTS.TRACKER);
                         break;
                     case 9000:
                         startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://gpslogger.app")));
@@ -1050,6 +1056,11 @@ public class GpsMainActivity extends AppCompatActivity
                 break;
             case 4:
                 transaction.replace(R.id.container, AnnotationViewFragment.newInstance());
+                break;
+            // Travel/hiking 改造：新增「轨迹地图」视图。
+            case 5:
+                transaction.replace(R.id.container,
+                        com.mendhak.gpslogger.tracker.ui.TrackMapViewFragment.newInstance());
                 break;
 
         }

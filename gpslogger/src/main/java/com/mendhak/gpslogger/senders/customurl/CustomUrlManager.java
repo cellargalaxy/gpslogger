@@ -154,6 +154,16 @@ public class CustomUrlManager extends FileSender {
 
     public void sendByHttp(String url, String method, String body, String headers, String username, String password){
 
+        // Travel/hiking 改造：默认走 Outbox（独立 SQLite 队列 + 自管重试），保证断网/弱网/进程被杀场景不丢点。
+        // 旧路径 = 直接塞 WorkManager Data，受限于 3 次重试上限，与旅行场景不匹配。
+        // 若用户在设置里关闭 Outbox，则回退到原 WorkManager Data 路径，保持向后兼容。
+        if (com.mendhak.gpslogger.tracker.TrackerPreferenceHelper.getInstance().isCustomUrlOutboxEnabled()) {
+            long recordedAt = System.currentTimeMillis();
+            com.mendhak.gpslogger.tracker.outbox.OutboxRepository.getInstance()
+                    .enqueue(recordedAt, url, method, body, headers, username, password);
+            return;
+        }
+
         CustomUrlRequest request = new CustomUrlRequest(url, method, body, headers, username, password);
         String serializedRequest = Strings.serializeTojson(request);
         String tag = String.valueOf(Objects.hashCode(serializedRequest));

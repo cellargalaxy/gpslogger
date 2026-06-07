@@ -208,6 +208,10 @@ dependencies {
     //CSV library
     implementation('org.apache.commons:commons-csv:1.9.0')
 
+    // Travel/hiking 改造：MapLibre Native Android（开源、无 Google Play Services 依赖，
+    // 提供 OfflineManager / OfflineRegion 离线下载能力）。
+    implementation 'org.maplibre.gl:android-sdk:11.5.2'
+
      //Libraries required for unit testing
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.mockito:mockito-core:3.10.0'
