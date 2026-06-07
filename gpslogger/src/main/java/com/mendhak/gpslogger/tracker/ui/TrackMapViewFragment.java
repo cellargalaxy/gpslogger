@@ -23,6 +23,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.mendhak.gpslogger.R;
+import com.mendhak.gpslogger.common.Session;
 import com.mendhak.gpslogger.common.slf4j.Logs;
 import com.mendhak.gpslogger.tracker.TrackerPreferenceHelper;
 import com.mendhak.gpslogger.tracker.cache.TrackCacheRepository;
@@ -53,11 +54,17 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private static final Logger LOG = Logs.of(TrackMapViewFragment.class);
     private static final String LAYER_ID_PREFIX = "track_segment_layer_";
     private static final String SOURCE_ID_PREFIX = "track_segment_source_";
+    private static final String FALLBACK_STYLE_JSON =
+            "{\"version\":8,\"name\":\"GPSLogger Track Fallback\",\"sources\":{},\"layers\":["
+                    + "{\"id\":\"background\",\"type\":\"background\","
+                    + "\"paint\":{\"background-color\":\"#E8EAED\"}}]}";
 
     private MapView mapView;
     private MapLibreMap mapLibreMap;
     private LinearLayout legendBar;
     private TextView statusText;
+    private boolean basemapAvailable = true;
+    private boolean fallbackStyleLoaded = false;
 
     private final List<String> currentSourceIds = new ArrayList<>();
     private final List<String> currentLayerIds = new ArrayList<>();
@@ -90,13 +97,51 @@ public class TrackMapViewFragment extends GenericViewFragment {
         fit.setOnClickListener(v -> refreshTrack(true));
 
         mapView.onCreate(savedInstanceState);
+        mapView.addOnDidFailLoadingMapListener(errorMessage -> {
+            LOG.warn("Track map style failed to load: {}", errorMessage);
+            loadFallbackStyle();
+        });
         mapView.getMapAsync(map -> {
             mapLibreMap = map;
-            String styleUrl = TrackerPreferenceHelper.getInstance().getOfflineMapStyleUrl();
-            map.setStyle(new Style.Builder().fromUri(styleUrl), style -> refreshTrack(true));
+            moveCameraToInitialPosition();
+            loadConfiguredStyle();
+            mapView.postDelayed(() -> {
+                if (mapLibreMap != null && mapLibreMap.getStyle() == null) {
+                    LOG.warn("Track map style load timed out");
+                    loadFallbackStyle();
+                }
+            }, 8000);
         });
 
         return root;
+    }
+
+    private void loadConfiguredStyle() {
+        if (mapLibreMap == null) return;
+        fallbackStyleLoaded = false;
+        basemapAvailable = true;
+        String styleUrl = TrackerPreferenceHelper.getInstance().getOfflineMapStyleUrl();
+        try {
+            mapLibreMap.setStyle(new Style.Builder().fromUri(styleUrl), style -> {
+                basemapAvailable = true;
+                refreshTrack(true);
+            });
+        } catch (Throwable t) {
+            LOG.warn("Failed to apply configured map style {}", styleUrl, t);
+            loadFallbackStyle();
+        }
+    }
+
+    private void loadFallbackStyle() {
+        if (mapLibreMap == null || fallbackStyleLoaded) return;
+        fallbackStyleLoaded = true;
+        basemapAvailable = false;
+        try {
+            mapLibreMap.setStyle(new Style.Builder().fromJson(FALLBACK_STYLE_JSON), style -> refreshTrack(true));
+        } catch (Throwable t) {
+            LOG.warn("Failed to apply fallback track map style", t);
+            showStatus(R.string.tracker_track_map_no_basemap);
+        }
     }
 
     private void centerOnLatest() {
@@ -112,6 +157,28 @@ public class TrackMapViewFragment extends GenericViewFragment {
                         .target(new LatLng(latest.lat, latest.lon))
                         .zoom(Math.max(mapLibreMap.getCameraPosition().zoom, 14.0))
                         .build()));
+    }
+
+    private void moveCameraToInitialPosition() {
+        if (mapLibreMap == null) return;
+        List<TrackPoint> points = loadPoints();
+        if (!points.isEmpty()) {
+            TrackPoint latest = points.get(points.size() - 1);
+            mapLibreMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latest.lat, latest.lon), 14.0));
+            return;
+        }
+        try {
+            android.location.Location loc = Session.getInstance().getCurrentLocationInfo();
+            if (loc != null) {
+                mapLibreMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                        new LatLng(loc.getLatitude(), loc.getLongitude()), 14.0));
+                return;
+            }
+        } catch (Throwable t) {
+            LOG.debug("No current location for initial track map camera", t);
+        }
+        mapLibreMap.moveCamera(CameraUpdateFactory.newCameraPosition(
+                new CameraPosition.Builder().target(new LatLng(0, 0)).zoom(1.0).build()));
     }
 
     private List<TrackPoint> loadPoints() {
@@ -146,7 +213,8 @@ public class TrackMapViewFragment extends GenericViewFragment {
             showStatus(R.string.tracker_track_map_empty);
             return;
         }
-        hideStatus();
+        if (basemapAvailable) hideStatus();
+        else showStatus(R.string.tracker_track_map_no_basemap);
 
         int segmentMinutes = TrackerPreferenceHelper.getInstance().getTrackMapSegmentMinutes();
         long segmentMillis = segmentMinutes * 60L * 1000L;
@@ -263,6 +331,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
 
     @Override
     public void onDestroyView() {
+        mapLibreMap = null;
         if (mapView != null) mapView.onDestroy();
         super.onDestroyView();
     }
