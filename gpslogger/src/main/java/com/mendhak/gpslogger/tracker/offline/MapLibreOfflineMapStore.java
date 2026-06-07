@@ -74,7 +74,7 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
                 if (offlineRegions != null) {
                     for (OfflineRegion or : offlineRegions) {
                         Region r = new Region();
-                        r.id = or.getID();
+                        r.id = or.getId();
                         r.name = parseName(or.getMetadata());
                         if (or.getDefinition() instanceof OfflineTilePyramidRegionDefinition) {
                             OfflineTilePyramidRegionDefinition def = (OfflineTilePyramidRegionDefinition) or.getDefinition();
@@ -128,12 +128,12 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
                 new OfflineManager.CreateOfflineRegionCallback() {
             @Override
             public void onCreate(OfflineRegion offlineRegion) {
-                outId.set(offlineRegion.getID());
+                outId.set(offlineRegion.getId());
                 offlineRegion.setObserver(new OfflineRegion.OfflineRegionObserver() {
                     @Override
                     public void onStatusChanged(OfflineRegionStatus status) {
                         if (callback != null) {
-                            callback.onProgress(offlineRegion.getID(),
+                            callback.onProgress(offlineRegion.getId(),
                                     status.getCompletedResourceSize(),
                                     status.getRequiredResourceCount() > 0
                                             ? status.getCompletedResourceCount() : 0,
@@ -143,13 +143,13 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
 
                     @Override
                     public void onError(OfflineRegionError error) {
-                        if (callback != null) callback.onError(offlineRegion.getID(),
+                        if (callback != null) callback.onError(offlineRegion.getId(),
                                 error.getReason() + " : " + error.getMessage());
                     }
 
                     @Override
                     public void mapboxTileCountLimitExceeded(long limit) {
-                        if (callback != null) callback.onError(offlineRegion.getID(),
+                        if (callback != null) callback.onError(offlineRegion.getId(),
                                 "Tile count limit exceeded: " + limit);
                     }
                 });
@@ -214,7 +214,7 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
             public void onList(OfflineRegion[] offlineRegions) {
                 if (offlineRegions == null) return;
                 for (OfflineRegion or : offlineRegions) {
-                    if (or.getID() == regionId) action.run(or);
+                    if (or.getId() == regionId) action.run(or);
                 }
             }
             @Override

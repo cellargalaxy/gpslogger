@@ -98,15 +98,28 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
             double lat = loc.getLatitude();
             double lon = loc.getLongitude();
             String name = "Region " + new Date();
+            // ProgressCallback 有 onProgress / onError 两个抽象方法，不是 SAM 接口，
+            // 不能用 lambda；这里用匿名类。
             long id = store.createRegion(name,
                     lat - DEFAULT_RADIUS_DEG, lon - DEFAULT_RADIUS_DEG,
                     lat + DEFAULT_RADIUS_DEG, lon + DEFAULT_RADIUS_DEG,
                     8, 15,
-                    (regionId, completedBytes, totalEstimatedBytes, done) -> {
-                        runOnUiThread(() -> {
-                            status.setText("Downloading region " + regionId + ": " + completedBytes + " bytes");
-                            if (done) refresh();
-                        });
+                    new OfflineMapStore.ProgressCallback() {
+                        @Override
+                        public void onProgress(long regionId, long completedBytes, long totalEstimatedBytes, boolean done) {
+                            runOnUiThread(() -> {
+                                status.setText("Downloading region " + regionId + ": " + completedBytes + " bytes");
+                                if (done) refresh();
+                            });
+                        }
+
+                        @Override
+                        public void onError(long regionId, String message) {
+                            runOnUiThread(() ->
+                                    Toast.makeText(OfflineMapManagerActivity.this,
+                                            "Region " + regionId + " error: " + message,
+                                            Toast.LENGTH_LONG).show());
+                        }
                     });
             Toast.makeText(this, "Region created: " + id, Toast.LENGTH_SHORT).show();
             refresh();

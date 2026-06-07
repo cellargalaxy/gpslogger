@@ -100,19 +100,21 @@ public class CustomUrlRequest implements Serializable {
 
 
 
-    String getHttpMethod(){
+    // Travel/hiking 改造：从 package-private 提升到 public，
+    // 让 tracker.outbox 包里的 CustomUrlOutboxWorker 能消费这些字段。
+    public String getHttpMethod(){
         return this.httpMethod;
     }
 
-    String getLogURL(){
+    public String getLogURL(){
         return this.logURL;
     }
 
-    HashMap<String, String> getHttpHeaders(){
+    public HashMap<String, String> getHttpHeaders(){
         return this.httpHeaders;
     }
 
-    String getHttpBody(){
+    public String getHttpBody(){
         return this.httpBody;
     }
 }
