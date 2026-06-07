@@ -11,12 +11,13 @@
 
 ## `fork-build-apk.yml` 一句话说明
 
-任意 push / PR 都会自动产出 **debug APK** 作为 workflow artifact，无需任何 secret；推 `v*` tag 时额外产出 **release APK** 并发 GitHub Release。
+任意 push / PR 都会自动产出 **debug APK** 作为 workflow artifact，无需任何 secret；推到 `master` 时额外刷新 `nightly` 预发布 Release；推 `v*` tag 时创建正式 GitHub Release。
 
 ### 触发方式
 
-- 任何分支 `push` 或 `pull_request` → 只构建 debug APK
-- 推 tag `v<...>` → 同时构建 debug + release APK + 自动创建 Release
+- 任何非 `master` 分支 `push` 或 `pull_request` → 只构建 debug APK
+- 推到 `master` → 同时构建 debug + release APK，并刷新固定的 `nightly` 预发布 Release
+- 推 tag `v<...>` → 同时构建 debug + release APK，并创建正式 Release
 - 手动 `workflow_dispatch` → 默认 debug；选 `build_release=true` 时同时构建 release（不发 Release）
 
 ### 产物在哪里看
@@ -54,12 +55,12 @@ base64 -w0 your.jks
 
 ### 发版步骤
 
-1. 本地 commit 完想发的代码：
+1. 日常测试包：push 到 `master` 后，GitHub Actions 会刷新 `nightly` 预发布 Release。
+2. 正式发版：本地 commit 完想发的代码后推 `v*` tag：
     ```bash
     git tag v135-travel.1
     git push origin v135-travel.1
     ```
-2. GitHub Actions 自动构建 + 发 Release。
 3. 在 GitHub Releases 页面下载 APK 安装。
 
 ### 注意

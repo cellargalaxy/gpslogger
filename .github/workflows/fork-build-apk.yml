@@ -185,12 +185,18 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             MODE="tag"
             LABEL="${GITHUB_REF##*/}"
+            RELEASE_TAG="$LABEL"
+            RELEASE_NAME="$LABEL"
           elif [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/master" ]]; then
             MODE="nightly"
             LABEL="nightly-${SHORT_SHA}"
+            RELEASE_TAG="nightly"
+            RELEASE_NAME="Nightly Build"
           else
             MODE="dispatch"
             LABEL="manual-${SHORT_SHA}"
+            RELEASE_TAG=""
+            RELEASE_NAME=""
           fi
           if [ "${{ steps.keystore.outputs.have_keystore }}" = "true" ]; then
             SUFFIX=""
@@ -204,38 +210,50 @@ jobs:
           echo "sha_path=$TARGET.SHA256" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Upload release APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gpslogger-travel-release-${{ steps.locate_release.outputs.version }}-${{ steps.locate_release.outputs.tag }}
+          name: gpslogger-travel-release-${{ steps.locate_release.outputs.version }}-${{ steps.locate_release.outputs.label }}
           path: |
             ${{ steps.locate_release.outputs.apk_path }}
             ${{ steps.locate_release.outputs.sha_path }}
           if-no-files-found: error
           retention-days: 90
 
-      # 只有 tag 触发才发 Release。手动触发不发，避免重复。
+      # master push 刷新固定 nightly tag，确保 nightly Release 指向最新提交。
+      - name: Move nightly tag
+        if: steps.locate_release.outputs.mode == 'nightly'
+        run: |
+          git tag -f nightly "$GITHUB_SHA"
+          git push -f origin refs/tags/nightly
+
+      # tag 触发发正式 Release；master push 刷新固定 nightly 预发布 Release。手动触发不发，避免重复。
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.locate_release.outputs.mode == 'tag' || steps.locate_release.outputs.mode == 'nightly'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.locate_release.outputs.tag }}
-          name: ${{ steps.locate_release.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.locate_release.outputs.release_name }}
           draft: false
-          prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
+          prerelease: ${{ steps.locate_release.outputs.mode == 'nightly' || contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
+          make_latest: ${{ steps.locate_release.outputs.mode == 'tag' }}
           fail_on_unmatched_files: true
           body: |
             自动构建产物。
 
             版本号（versionName）：`${{ steps.locate_release.outputs.version }}`
+            构建来源：`${{ steps.locate_release.outputs.label }}`
             签名状态：`${{ steps.keystore.outputs.have_keystore == 'true' && 'signed' || 'unsigned (CI artifact only)' }}`
 
             校验：
             ```
-            sha256sum -c ${{ steps.locate_release.outputs.tag }}/*.SHA256
+            sha256sum -c *.SHA256
             ```
           files: |
             ${{ steps.locate_release.outputs.apk_path }}
