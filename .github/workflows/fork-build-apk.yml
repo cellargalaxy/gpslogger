@@ -4,7 +4,7 @@
 # 1. 任何 push / PR / 手动触发都自动产出 debug APK 作为 workflow artifact，便于自测；
 # 2. 推 tag（如 v135-travel.1）时额外打 release APK；
 #    - 若 fork 用户在 GitHub Secrets 配了签名密钥，release APK 会被签名；
-#    - 否则同样产出未签名 release APK 作为 artifact（不创建 Release）；
+#    - 否则产出 debug-signed APK，Android 可直接安装，但不能当正式 release 包；
 # 3. 完全不依赖上游 mendhak/gpslogger 的私有 secrets（PGP/Cosign），
 #    fork 任何人都能直接跑通。
 #
@@ -20,9 +20,9 @@
 # 触发条件之间的关系：
 # - push 到非 master 分支             -> 仅构建 debug APK（artifact）
 # - pull_request                       -> 仅构建 debug APK（artifact）
-# - push 到 master                     -> debug + release APK，并刷新固定的 `nightly` 预发布 Release
-# - push tag v*                        -> debug + release APK，创建正式 GitHub Release
-# - workflow_dispatch + build_release  -> debug + release APK 作为 artifact，不创建 Release
+# - push 到 master                     -> debug + signed release / debug fallback APK，并刷新固定的 `nightly` 预发布 Release
+# - push tag v*                        -> debug + signed release / debug fallback APK，创建正式 GitHub Release
+# - workflow_dispatch + build_release  -> debug + signed release / debug fallback APK 作为 artifact，不创建 Release
 
 name: Fork Build APK
 
@@ -38,7 +38,7 @@ on:
   workflow_dispatch:
     inputs:
       build_release:
-        description: '同时构建 release APK（需要 keystore secrets，否则会出 unsigned 包）'
+        description: '同时构建可安装 APK（有 keystore secrets 时为 release，否则为 debug fallback）'
         required: false
         default: 'false'
         type: choice
@@ -108,8 +108,7 @@ jobs:
 
   # 三种触发：tag、master push、手动触发选了 release。
   # 与 build-debug 独立（不再 needs），避免 debug 任何步骤失败连带导致 release 不跑、Release 无 APK。
-  # 没有签名 secrets 也能跑，只是 release APK 不带签名（Android 装机仍会拒绝，
-  # 用户应用作 CI 产物或测试包）。
+  # 没有签名 secrets 也能跑；此时发布 debug-signed APK，保证手机下载后可以安装。
   build-release:
     name: Build release APK
     runs-on: ubuntu-latest
@@ -137,7 +136,7 @@ jobs:
 
       # 仅在 fork 用户在 GitHub Secrets 里同时配了
       #   KEYSTORE_BASE64 / SIGNING_KEY_ALIAS / SIGNING_KEY_PASSWORD / SIGNING_STORE_PASSWORD
-      # 时才解码 keystore；否则编译走 unsigned release。
+      # 时才解码 keystore；否则改走 debug fallback，避免产出 Android 拒绝安装的 unsigned APK。
       - name: Decode keystore (optional)
         id: keystore
         env:
@@ -155,7 +154,7 @@ jobs:
             echo "have_keystore=true" >> "$GITHUB_OUTPUT"
           else
             echo "have_keystore=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Signing secrets missing or incomplete. Building unsigned release APK."
+            echo "::warning::Signing secrets missing or incomplete. Building installable debug fallback APK."
           fi
 
       # 关键点：只有在签名 secrets 完整时才把 SIGNING_* 注入子进程，
@@ -168,17 +167,14 @@ jobs:
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
         run: ./gradlew :gpslogger:assembleRelease --no-daemon --stacktrace
 
-      - name: Assemble release APK (unsigned)
+      - name: Assemble debug APK (installable fallback)
         if: steps.keystore.outputs.have_keystore != 'true'
-        run: ./gradlew :gpslogger:assembleRelease --no-daemon --stacktrace
+        run: ./gradlew :gpslogger:assembleDebug --no-daemon --stacktrace
 
-      - name: Locate release APK
+      - name: Locate packaged APK
         id: locate_release
         run: |
           set -euxo pipefail
-          # 优先 signed/aligned 输出；否则取 unsigned。
-          APK_PATH=$(find gpslogger/build/outputs/apk/release -maxdepth 2 -name "*.apk" -print | head -1)
-          test -n "$APK_PATH"
           VERSION=$(grep -E "versionName\s+\"?[0-9A-Za-z._-]+\"?" gpslogger/build.gradle | head -1 | sed -E 's/.*versionName\s+"([^"]+)".*/\1/')
           SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
           # 区分发布模式：tag / nightly / dispatch
@@ -199,11 +195,16 @@ jobs:
             RELEASE_NAME=""
           fi
           if [ "${{ steps.keystore.outputs.have_keystore }}" = "true" ]; then
-            SUFFIX=""
+            APK_PATH=$(find gpslogger/build/outputs/apk/release -maxdepth 2 -name "*.apk" ! -name "*unsigned*" -print -quit)
+            BUILD_KIND="release"
+            SIGNING_STATUS="release-signed"
           else
-            SUFFIX="-unsigned"
+            APK_PATH=$(find gpslogger/build/outputs/apk/debug -maxdepth 2 -name "*.apk" -print -quit)
+            BUILD_KIND="debug"
+            SIGNING_STATUS="debug-signed"
           fi
-          TARGET="gpslogger-travel-release-${VERSION}-${LABEL}${SUFFIX}.apk"
+          test -n "$APK_PATH"
+          TARGET="gpslogger-travel-${BUILD_KIND}-${VERSION}-${LABEL}.apk"
           cp "$APK_PATH" "$TARGET"
           ( cd "$(dirname "$TARGET")" && sha256sum "$(basename "$TARGET")" > "$(basename "$TARGET").SHA256" )
           echo "apk_path=$TARGET" >> "$GITHUB_OUTPUT"
@@ -214,11 +215,13 @@ jobs:
           echo "release_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "build_kind=$BUILD_KIND" >> "$GITHUB_OUTPUT"
+          echo "signing_status=$SIGNING_STATUS" >> "$GITHUB_OUTPUT"
 
-      - name: Upload release APK artifact
+      - name: Upload packaged APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gpslogger-travel-release-${{ steps.locate_release.outputs.version }}-${{ steps.locate_release.outputs.label }}
+          name: gpslogger-travel-${{ steps.locate_release.outputs.build_kind }}-${{ steps.locate_release.outputs.version }}-${{ steps.locate_release.outputs.label }}
           path: |
             ${{ steps.locate_release.outputs.apk_path }}
             ${{ steps.locate_release.outputs.sha_path }}
@@ -232,6 +235,20 @@ jobs:
           git tag -f nightly "$GITHUB_SHA"
           git push -f origin refs/tags/nightly
 
+      # 清理旧版 workflow 可能已经发布过的 unsigned APK，避免用户在 Release 页面误下无效包。
+      - name: Remove old unsigned release assets
+        if: steps.locate_release.outputs.mode == 'tag' || steps.locate_release.outputs.mode == 'nightly'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.locate_release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || exit 0
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[] | select(.name | contains("-unsigned")) | .name' \
+            | while IFS= read -r asset; do
+                gh release delete-asset "$RELEASE_TAG" "$asset" --yes
+              done
+
       # tag 触发发正式 Release；master push 刷新固定 nightly 预发布 Release。手动触发不发，避免重复。
       - name: Create GitHub Release
         if: steps.locate_release.outputs.mode == 'tag' || steps.locate_release.outputs.mode == 'nightly'
@@ -242,14 +259,19 @@ jobs:
           name: ${{ steps.locate_release.outputs.release_name }}
           draft: false
           prerelease: ${{ steps.locate_release.outputs.mode == 'nightly' || contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
-          make_latest: ${{ steps.locate_release.outputs.mode == 'tag' }}
+          make_latest: ${{ steps.locate_release.outputs.mode == 'tag' && steps.locate_release.outputs.build_kind == 'release' }}
           fail_on_unmatched_files: true
           body: |
             自动构建产物。
 
             版本号（versionName）：`${{ steps.locate_release.outputs.version }}`
             构建来源：`${{ steps.locate_release.outputs.label }}`
-            签名状态：`${{ steps.keystore.outputs.have_keystore == 'true' && 'signed' || 'unsigned (CI artifact only)' }}`
+            构建类型：`${{ steps.locate_release.outputs.build_kind }}`
+            签名状态：`${{ steps.locate_release.outputs.signing_status }}`
+
+            说明：
+            - `release-signed`：使用仓库配置的 keystore 签名，可作为正式发布包。
+            - `debug-signed`：缺少 keystore secrets 时的可安装测试包，不是正式发布包；若手机已安装不同签名的旧版本，需要先卸载旧版本再安装。
 
             校验：
             ```

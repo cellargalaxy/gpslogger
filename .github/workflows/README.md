@@ -11,26 +11,30 @@
 
 ## `fork-build-apk.yml` 一句话说明
 
-任意 push / PR 都会自动产出 **debug APK** 作为 workflow artifact，无需任何 secret；推到 `master` 时额外刷新 `nightly` 预发布 Release；推 `v*` tag 时创建正式 GitHub Release。
+任意 push / PR 都会自动产出 **debug APK** 作为 workflow artifact，无需任何 secret；推到 `master` 时额外刷新 `nightly` 预发布 Release；推 `v*` tag 时创建 GitHub Release。
+
+有签名 secrets 时，Release 里发布 `release-signed` APK；没有签名 secrets 时，Release 里发布 `debug-signed` APK。两者都可以被 Android 安装；旧版 `-unsigned.apk` 不能安装，不要下载。
 
 ### 触发方式
 
-- 任何非 `master` 分支 `push` 或 `pull_request` → 只构建 debug APK
-- 推到 `master` → 同时构建 debug + release APK，并刷新固定的 `nightly` 预发布 Release
-- 推 tag `v<...>` → 同时构建 debug + release APK，并创建正式 Release
-- 手动 `workflow_dispatch` → 默认 debug；选 `build_release=true` 时同时构建 release（不发 Release）
+- 任何非 `master` 分支 `push` 或 `pull_request` → 只构建 debug APK artifact
+- 推到 `master` → 构建 debug APK；有 keystore secrets 时发布 signed release APK，否则发布 debug-signed fallback APK，并刷新固定的 `nightly` 预发布 Release
+- 推 tag `v<...>` → 构建 debug APK；有 keystore secrets 时发布 signed release APK，否则发布 debug-signed fallback APK，并创建 GitHub Release
+- 手动 `workflow_dispatch` → 默认 debug；选 `build_release=true` 时额外构建 signed release 或 debug-signed fallback（不发 Release，只上传 artifact）
 
 ### 产物在哪里看
 
-- 进 Actions 页面 → 点对应的 workflow run → 滚到底部的 **Artifacts** 区域
+- GitHub Releases 页面：直接下载 `.apk` 文件即可安装。不要下载 `.SHA256`，它只是校验文件。
+- Actions 页面 → 对应 workflow run → 底部 **Artifacts**：GitHub 下载的是 zip 包，需要先解压，再安装里面的 `.apk`。
 - 文件命名：
-    - `gpslogger-travel-debug-<versionName>-<short_sha>.apk`
-    - `gpslogger-travel-release-<versionName>-<tag>[-unsigned].apk`（unsigned 后缀只在没配签名 secrets 时出现）
-    - 每个 release artifact 附带 `<...>.SHA256` 校验文件
+    - `gpslogger-travel-debug-<versionName>-<short_sha>.apk`：普通 debug artifact
+    - `gpslogger-travel-release-<versionName>-<tag/nightly>.apk`：已配置 keystore secrets 时产出的 signed release APK
+    - `gpslogger-travel-debug-<versionName>-<tag/nightly/manual>.apk`：缺少 keystore secrets 时产出的 debug-signed fallback APK
+    - 每个 build-release 产物附带 `<...>.SHA256` 校验文件
 
 ### 可选签名配置
 
-如果希望 release APK 被签名（otherwise 装机会被 Android 拒绝），需要在仓库 Settings → Secrets and variables → Actions 里配齐以下 4 个 secret：
+如果希望产出真正的 release APK，需要在仓库 Settings → Secrets and variables → Actions 里配齐以下 4 个 secret：
 
 | Secret name | 内容 |
 | --- | --- |
@@ -39,7 +43,7 @@
 | `SIGNING_KEY_PASSWORD` | key 密码 |
 | `SIGNING_STORE_PASSWORD` | keystore 密码 |
 
-只要其中任一缺失，release APK 会以 `-unsigned` 后缀产出，构建不会失败。
+只要其中任一缺失，workflow 会改为构建 debug-signed fallback APK，避免发布 Android 拒绝安装的 unsigned APK。
 
 ### 生成 keystore 的命令（一次性）
 
@@ -61,7 +65,12 @@ base64 -w0 your.jks
     git tag v135-travel.1
     git push origin v135-travel.1
     ```
-3. 在 GitHub Releases 页面下载 APK 安装。
+3. 在 GitHub Releases 页面下载 APK 安装。没有配置 keystore secrets 时，下载 `gpslogger-travel-debug-...apk`；配置后下载 `gpslogger-travel-release-...apk`。
+
+### 安装排错
+
+- 如果手机提示“软件包似乎无效”，先确认下载的不是旧 workflow 产出的 `-unsigned.apk`，也不是 Actions artifact 的 zip 包。
+- 如果手机已安装过不同签名的 GPSLogger，Android 会拒绝覆盖安装；测试 debug-signed fallback 时先卸载旧版本再装。
 
 ### 注意
 
