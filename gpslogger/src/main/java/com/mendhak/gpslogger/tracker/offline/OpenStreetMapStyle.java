@@ -43,6 +43,7 @@ public final class OpenStreetMapStyle {
     }
 
     public static String styleJson() {
+        // background layer 在 raster 之前，避免 OSM 瓦片未到位时画布为 MapLibre 默认黑色。
         return "{"
                 + "\"version\":8,"
                 + "\"name\":\"OpenStreetMap Standard\","
@@ -56,12 +57,19 @@ public final class OpenStreetMapStyle {
                 + "\"attribution\":\"\\u00A9 OpenStreetMap contributors\""
                 + "}"
                 + "},"
-                + "\"layers\":[{"
+                + "\"layers\":["
+                + "{"
+                + "\"id\":\"background\","
+                + "\"type\":\"background\","
+                + "\"paint\":{\"background-color\":\"#E8EAED\"}"
+                + "},"
+                + "{"
                 + "\"id\":\"osm-standard\","
                 + "\"type\":\"raster\","
                 + "\"source\":\"osm-standard\","
                 + "\"paint\":{\"raster-opacity\":1.0}"
-                + "}]"
+                + "}"
+                + "]"
                 + "}";
     }
 

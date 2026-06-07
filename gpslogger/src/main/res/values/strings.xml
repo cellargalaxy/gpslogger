@@ -552,8 +552,14 @@
     <string name="tracker_offline_map_manage_summary">List, download, and delete offline map regions.</string>
     <string name="tracker_offline_map_activity_title">Offline map regions</string>
     <string name="tracker_offline_map_no_sdk">Offline map engine not configured. Set up a MapLibre style URL or install the engine first.</string>
-    <string name="tracker_offline_map_download_current_view">Download 5 km radius</string>
+    <string name="tracker_offline_map_download_current_view">Download this region</string>
     <string name="tracker_offline_map_delete_all">Delete all offline data</string>
+    <string name="tracker_offline_map_radius_title">Radius (km)</string>
+    <string name="tracker_offline_map_radius_value_format">%1$d km radius</string>
+    <string name="tracker_offline_map_max_zoom_title">Max zoom</string>
+    <string name="tracker_offline_map_zoom_explained">Higher max zoom = more detail but exponentially larger size. Zooming beyond max zoom shows enlarged tiles only — no extra detail is fetched.</string>
+    <string name="tracker_offline_map_size_estimate_format" formatted="false">Estimated tiles: ~%1$d, estimated size: ~%2$d MB.</string>
+    <string name="tracker_offline_map_preview_unavailable">Preview unavailable: open the Track Map once so GPSLogger has a recent location and the base map is ready.</string>
 
     <string name="tracker_offline_map_loading">Loading offline map regions...</string>
     <string name="tracker_offline_map_creating">Creating offline map region...</string>

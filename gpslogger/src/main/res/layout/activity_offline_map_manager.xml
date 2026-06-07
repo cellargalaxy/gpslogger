@@ -1,55 +1,128 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  Travel/hiking 改造：离线地图管理界面布局。
+  顶部嵌入一个固定高度的 MapView 预览将要下载的 BBox；
+  下方半径 / 最大缩放 控件让用户可视化调整；
+  再下方是已下载区域列表 + 删除按钮。
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="12dp">
-
-    <TextView
-        android:id="@+id/offline_map_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="8dp"
-        android:textSize="14sp" />
-
-    <TextView
-        android:id="@+id/offline_map_policy_hint"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="8dp"
-        android:textSize="14sp" />
-
-    <TextView
-        android:id="@+id/offline_map_download_plan"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="8dp"
-        android:textSize="14sp" />
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="vertical"
+        android:padding="12dp">
 
-        <Button
-            android:id="@+id/offline_map_download"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/tracker_offline_map_download_current_view" />
+        <FrameLayout
+            android:id="@+id/offline_map_preview_container"
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:background="#E8EAED">
 
-        <Button
-            android:id="@+id/offline_map_delete_all"
-            android:layout_width="0dp"
+            <TextView
+                android:id="@+id/offline_map_preview_unavailable"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:padding="12dp"
+                android:textSize="13sp"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/offline_map_status"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/tracker_offline_map_delete_all" />
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/offline_map_policy_hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/offline_map_radius_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="8dp"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <SeekBar
+            android:id="@+id/offline_map_radius_seekbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="4" />
+
+        <TextView
+            android:id="@+id/offline_map_max_zoom_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="8dp"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/offline_map_max_zoom_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/offline_map_download_plan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/offline_map_size_estimate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/offline_map_zoom_explained"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="2dp"
+            android:paddingBottom="8dp"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/offline_map_download"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/tracker_offline_map_download_current_view" />
+
+            <Button
+                android:id="@+id/offline_map_delete_all"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/tracker_offline_map_delete_all" />
+        </LinearLayout>
+
+        <ListView
+            android:id="@+id/offline_map_list"
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:paddingTop="8dp" />
     </LinearLayout>
-
-    <ListView
-        android:id="@+id/offline_map_list"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-</LinearLayout>
+</ScrollView>
