@@ -11,7 +11,7 @@
 
 ## `fork-build-apk.yml` 一句话说明
 
-任意 push / PR 都会自动产出 **debug APK** 作为 workflow artifact，无需任何 secret；推到 `master` 时额外刷新 `nightly` 预发布 Release；推 `v*` tag 时创建 GitHub Release。
+任意 push / PR 都会自动产出 **debug APK** 作为 workflow artifact，无需任何 secret；推到 `master` 时额外刷新 `nightly` 预发布 Release；手动触发可刷新 `manual` 预发布 Release；推 `v*` tag 时创建 GitHub Release。
 
 有签名 secrets 时，Release 里发布 `release-signed` APK；没有签名 secrets 时，Release 里发布 `debug-signed` APK。两者都可以被 Android 安装；旧版 `-unsigned.apk` 不能安装，不要下载。
 
@@ -20,7 +20,7 @@
 - 任何非 `master` 分支 `push` 或 `pull_request` → 只构建 debug APK artifact
 - 推到 `master` → 构建 debug APK；有 keystore secrets 时发布 signed release APK，否则发布 debug-signed fallback APK，并刷新固定的 `nightly` 预发布 Release
 - 推 tag `v<...>` → 构建 debug APK；有 keystore secrets 时发布 signed release APK，否则发布 debug-signed fallback APK，并创建 GitHub Release
-- 手动 `workflow_dispatch` → 默认 debug；选 `build_release=true` 时额外构建 signed release 或 debug-signed fallback（不发 Release，只上传 artifact）
+- 手动 `workflow_dispatch` → 默认 debug；选 `build_release=true` 时额外构建 signed release 或 debug-signed fallback，并刷新固定的 `manual` 预发布 Release
 
 ### 产物在哪里看
 
@@ -28,7 +28,7 @@
 - Actions 页面 → 对应 workflow run → 底部 **Artifacts**：GitHub 下载的是 zip 包，需要先解压，再安装里面的 `.apk`。
 - 文件命名：
     - `gpslogger-travel-debug-<versionName>-<short_sha>.apk`：普通 debug artifact
-    - `gpslogger-travel-release-<versionName>-<tag/nightly>.apk`：已配置 keystore secrets 时产出的 signed release APK
+    - `gpslogger-travel-release-<versionName>-<tag/nightly/manual>.apk`：已配置 keystore secrets 时产出的 signed release APK
     - `gpslogger-travel-debug-<versionName>-<tag/nightly/manual>.apk`：缺少 keystore secrets 时产出的 debug-signed fallback APK
     - 每个 build-release 产物附带 `<...>.SHA256` 校验文件
 
@@ -59,7 +59,7 @@ base64 -w0 your.jks
 
 ### 发版步骤
 
-1. 日常测试包：push 到 `master` 后，GitHub Actions 会刷新 `nightly` 预发布 Release。
+1. 日常测试包：push 到 `master` 后，GitHub Actions 会刷新 `nightly` 预发布 Release；也可以手动运行 workflow 并选择 `build_release=true`，刷新 `manual` 预发布 Release。
 2. 正式发版：本地 commit 完想发的代码后推 `v*` tag：
     ```bash
     git tag v135-travel.1
