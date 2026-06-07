@@ -28,6 +28,7 @@ import com.mendhak.gpslogger.R;
 import com.mendhak.gpslogger.common.AppSettings;
 import com.mendhak.gpslogger.common.Session;
 import com.mendhak.gpslogger.common.slf4j.Logs;
+import com.mendhak.gpslogger.tracker.TrackerPreferenceHelper;
 import com.mendhak.gpslogger.tracker.offline.MapLibreOfflineMapStore;
 import com.mendhak.gpslogger.tracker.offline.OfflineMapStore;
 
@@ -43,9 +44,13 @@ import java.util.concurrent.Executors;
 public class OfflineMapManagerActivity extends AppCompatActivity {
 
     private static final Logger LOG = Logs.of(OfflineMapManagerActivity.class);
-    private static final double DEFAULT_RADIUS_DEG = 0.05; // 约 5km
+    private static final double DEFAULT_RADIUS_KM = 5.0;
+    private static final int DEFAULT_MIN_ZOOM = 8;
+    private static final int DEFAULT_MAX_ZOOM = 15;
 
     private TextView status;
+    private TextView policyHint;
+    private TextView downloadPlan;
     private ListView listView;
     private Button downloadButton;
     private Button deleteAllButton;
@@ -65,6 +70,8 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
         if (getSupportActionBar() != null) getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
         status = findViewById(R.id.offline_map_status);
+        policyHint = findViewById(R.id.offline_map_policy_hint);
+        downloadPlan = findViewById(R.id.offline_map_download_plan);
         listView = findViewById(R.id.offline_map_list);
         downloadButton = findViewById(R.id.offline_map_download);
         deleteAllButton = findViewById(R.id.offline_map_delete_all);
@@ -73,6 +80,7 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
         listView.setAdapter(adapter);
 
         store = new MapLibreOfflineMapStore(this);
+        renderDownloadGuidance();
         if (!store.isAvailable()) {
             status.setText(R.string.tracker_offline_map_no_sdk);
             setControlsEnabled(false);
@@ -94,6 +102,12 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
     }
 
     private void onDownloadCurrentArea(View v) {
+        if (TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicOpenStreetMapTiles()) {
+            Toast.makeText(this, R.string.tracker_offline_map_public_osm_blocked, Toast.LENGTH_LONG).show();
+            renderDownloadGuidance();
+            return;
+        }
+
         Location loc = Session.getInstance().getCurrentLocationInfo();
         if (loc == null) {
             loc = getLastKnownLocation();
@@ -103,16 +117,15 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
             return;
         }
 
-        double lat = loc.getLatitude();
-        double lon = loc.getLongitude();
+        RegionPlan plan = buildDefaultRegionPlan(loc);
         String name = "Region " + new Date();
         setBusy(getString(R.string.tracker_offline_map_creating));
         ioExecutor.execute(() -> {
             try {
                 long id = store.createRegion(name,
-                        lat - DEFAULT_RADIUS_DEG, lon - DEFAULT_RADIUS_DEG,
-                        lat + DEFAULT_RADIUS_DEG, lon + DEFAULT_RADIUS_DEG,
-                        8, 15,
+                        plan.minLat, plan.minLon,
+                        plan.maxLat, plan.maxLon,
+                        plan.minZoom, plan.maxZoom,
                         new OfflineMapStore.ProgressCallback() {
                             @Override
                             public void onProgress(long regionId, long completedBytes, long totalEstimatedBytes, boolean done) {
@@ -160,6 +173,47 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
         }
     }
 
+    private void renderDownloadGuidance() {
+        if (policyHint != null) {
+            int text = TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicOpenStreetMapTiles()
+                    ? R.string.tracker_offline_map_osm_online_only
+                    : R.string.tracker_offline_map_provider_hint;
+            policyHint.setText(text);
+        }
+
+        if (downloadPlan == null) return;
+        Location loc = Session.getInstance().getCurrentLocationInfo();
+        if (loc == null) loc = getLastKnownLocation();
+        if (loc == null) {
+            downloadPlan.setText(R.string.tracker_offline_map_plan_no_location);
+            return;
+        }
+        RegionPlan plan = buildDefaultRegionPlan(loc);
+        downloadPlan.setText(getString(R.string.tracker_offline_map_plan_format,
+                plan.minLat, plan.minLon, plan.maxLat, plan.maxLon,
+                plan.minZoom, plan.maxZoom, plan.maxZoom));
+    }
+
+    private RegionPlan buildDefaultRegionPlan(Location loc) {
+        double lat = loc.getLatitude();
+        double lon = loc.getLongitude();
+        double latDelta = DEFAULT_RADIUS_KM / 111.32;
+        double cos = Math.max(0.2, Math.abs(Math.cos(Math.toRadians(lat))));
+        double lonDelta = DEFAULT_RADIUS_KM / (111.32 * cos);
+        RegionPlan plan = new RegionPlan();
+        plan.minLat = clamp(lat - latDelta, -85.0, 85.0);
+        plan.maxLat = clamp(lat + latDelta, -85.0, 85.0);
+        plan.minLon = clamp(lon - lonDelta, -180.0, 180.0);
+        plan.maxLon = clamp(lon + lonDelta, -180.0, 180.0);
+        plan.minZoom = DEFAULT_MIN_ZOOM;
+        plan.maxZoom = DEFAULT_MAX_ZOOM;
+        return plan;
+    }
+
+    private double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private void refreshAsync() {
         setBusy(getString(R.string.tracker_offline_map_loading));
         ioExecutor.execute(() -> {
@@ -190,6 +244,7 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
             ids.add(r.id);
         }
         adapter.notifyDataSetChanged();
+        renderDownloadGuidance();
         setControlsEnabled(true);
         status.setText(getString(R.string.tracker_offline_map_regions_format, list.size()));
     }
@@ -221,7 +276,8 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
     }
 
     private void setControlsEnabled(boolean enabled) {
-        downloadButton.setEnabled(enabled);
+        boolean canDownload = enabled && !TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicOpenStreetMapTiles();
+        downloadButton.setEnabled(canDownload);
         deleteAllButton.setEnabled(enabled);
         listView.setEnabled(enabled);
     }
@@ -243,6 +299,15 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
         destroyed = true;
         ioExecutor.shutdownNow();
         super.onDestroy();
+    }
+
+    private static class RegionPlan {
+        double minLat;
+        double minLon;
+        double maxLat;
+        double maxLon;
+        int minZoom;
+        int maxZoom;
     }
 
     private interface StoreAction {

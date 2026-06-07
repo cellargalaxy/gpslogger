@@ -8,6 +8,7 @@ import android.content.SharedPreferences;
 import androidx.preference.PreferenceManager;
 
 import com.mendhak.gpslogger.common.AppSettings;
+import com.mendhak.gpslogger.tracker.offline.OpenStreetMapStyle;
 
 public final class TrackerPreferenceHelper {
 
@@ -105,8 +106,13 @@ public final class TrackerPreferenceHelper {
     public String getOfflineMapStyleUrl() {
         String s = prefs.getString(TrackerPreferenceNames.OFFLINE_MAP_STYLE_URL,
                 TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_STYLE_URL);
-        return s == null || s.trim().isEmpty()
-                ? TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_STYLE_URL
-                : s.trim();
+        if (s == null || s.trim().isEmpty() || OpenStreetMapStyle.isLegacyDemoStyle(s)) {
+            return TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_STYLE_URL;
+        }
+        return s.trim();
+    }
+
+    public boolean isOfflineMapUsingPublicOpenStreetMapTiles() {
+        return OpenStreetMapStyle.usesPublicOpenStreetMapTiles(getOfflineMapStyleUrl());
     }
 }

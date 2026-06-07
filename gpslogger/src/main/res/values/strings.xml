@@ -547,18 +547,23 @@
     <string name="tracker_offline_map_max_mb_title">Offline map cache size (MB)</string>
     <string name="tracker_offline_map_max_mb_summary">Soft cap for the offline map data on this device.</string>
     <string name="tracker_offline_map_style_url_title">Map style URL</string>
-    <string name="tracker_offline_map_style_url_summary">A MapLibre / MapTiler style JSON URL.</string>
+    <string name="tracker_offline_map_style_url_summary">Use builtin:openstreetmap for the built-in OpenStreetMap online map. Offline downloads require a provider or self-hosted style URL that permits prefetching.</string>
     <string name="tracker_offline_map_manage_title">Manage offline map regions</string>
     <string name="tracker_offline_map_manage_summary">List, download, and delete offline map regions.</string>
     <string name="tracker_offline_map_activity_title">Offline map regions</string>
     <string name="tracker_offline_map_no_sdk">Offline map engine not configured. Set up a MapLibre style URL or install the engine first.</string>
-    <string name="tracker_offline_map_download_current_view">Download current view</string>
+    <string name="tracker_offline_map_download_current_view">Download 5 km radius</string>
     <string name="tracker_offline_map_delete_all">Delete all offline data</string>
 
     <string name="tracker_offline_map_loading">Loading offline map regions...</string>
     <string name="tracker_offline_map_creating">Creating offline map region...</string>
     <string name="tracker_offline_map_deleting">Deleting offline map data...</string>
     <string name="tracker_offline_map_no_location">No current location available.</string>
+    <string name="tracker_offline_map_osm_online_only">The default map uses OpenStreetMap standard tiles for online viewing. OpenStreetMap public tiles cannot be downloaded for offline regions; use a provider or self-hosted style URL that explicitly permits offline use.</string>
+    <string name="tracker_offline_map_provider_hint">Offline downloads use the configured style URL. Confirm that the tile provider allows prefetching and offline storage before downloading.</string>
+    <string name="tracker_offline_map_public_osm_blocked">OpenStreetMap public tiles cannot be downloaded for offline use. Use a provider or self-hosted style URL that permits offline downloads.</string>
+    <string name="tracker_offline_map_plan_no_location">Download plan unavailable: start logging or open Track Map once so GPSLogger has a recent location.</string>
+    <string name="tracker_offline_map_plan_format" formatted="false">Planned area: %.4f,%.4f to %.4f,%.4f. Zoom %d-%d will be stored; zooming beyond %d reuses the highest downloaded tiles and will not fetch higher detail automatically.</string>
     <string name="tracker_offline_map_regions_format">Regions: %1$d  (long-press to delete one)</string>
     <string name="tracker_offline_map_region_row_format" formatted="false">BBox %.4f,%.4f - %.4f,%.4f  zoom %d-%d</string>
     <string name="tracker_offline_map_download_progress_format">Downloading region %1$d: %2$d bytes</string>

@@ -111,7 +111,7 @@
             app:iconSpaceReserved="false" />
 
         <EditTextPreference
-            android:defaultValue="https://demotiles.maplibre.org/style.json"
+            android:defaultValue="builtin:openstreetmap"
             android:key="offline_map_style_url"
             android:title="@string/tracker_offline_map_style_url_title"
             android:summary="@string/tracker_offline_map_style_url_summary"

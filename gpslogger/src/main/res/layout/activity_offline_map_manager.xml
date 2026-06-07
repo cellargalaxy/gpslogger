@@ -12,6 +12,20 @@
         android:padding="8dp"
         android:textSize="14sp" />
 
+    <TextView
+        android:id="@+id/offline_map_policy_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/offline_map_download_plan"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:textSize="14sp" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

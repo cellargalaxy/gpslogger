@@ -24,6 +24,9 @@ public final class TrackerPreferenceNames {
     public static final String OFFLINE_MAP_MAX_MB = "offline_map_max_mb";
     public static final String OFFLINE_MAP_STYLE_URL = "offline_map_style_url";
 
+    public static final String BUILTIN_OPENSTREETMAP_STYLE_URL = "builtin:openstreetmap";
+    public static final String LEGACY_MAPLIBRE_DEMO_STYLE_URL = "https://demotiles.maplibre.org/style.json";
+
     // 默认值
     public static final int DEFAULT_LOCAL_TRACK_CACHE_RETENTION_HOURS = 24;
     public static final int DEFAULT_TRACK_MAP_SEGMENT_MINUTES = 15;
@@ -32,5 +35,5 @@ public final class TrackerPreferenceNames {
     public static final int DEFAULT_CUSTOMURL_OUTBOX_MAX_ROWS = 200000;
     public static final int DEFAULT_CUSTOMURL_OUTBOX_KEEP_FAILED_DAYS = 30;
     public static final int DEFAULT_OFFLINE_MAP_MAX_MB = 1024;
-    public static final String DEFAULT_OFFLINE_MAP_STYLE_URL = "https://demotiles.maplibre.org/style.json";
+    public static final String DEFAULT_OFFLINE_MAP_STYLE_URL = BUILTIN_OPENSTREETMAP_STYLE_URL;
 }

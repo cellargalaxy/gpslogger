@@ -28,6 +28,7 @@ import com.mendhak.gpslogger.common.slf4j.Logs;
 import com.mendhak.gpslogger.tracker.TrackerPreferenceHelper;
 import com.mendhak.gpslogger.tracker.cache.TrackCacheRepository;
 import com.mendhak.gpslogger.tracker.db.TrackPoint;
+import com.mendhak.gpslogger.tracker.offline.OpenStreetMapStyle;
 import com.mendhak.gpslogger.ui.fragments.display.GenericViewFragment;
 
 import org.maplibre.android.MapLibre;
@@ -79,6 +80,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
                              @Nullable Bundle savedInstanceState) {
         // MapLibre 必须在 inflate MapView 之前初始化。多次调用安全。
         try {
+            OpenStreetMapStyle.configureMapLibreHttpClient(requireContext().getApplicationContext());
             MapLibre.getInstance(requireContext().getApplicationContext());
         } catch (Throwable t) {
             LOG.warn("MapLibre init failed", t);
@@ -122,7 +124,10 @@ public class TrackMapViewFragment extends GenericViewFragment {
         basemapAvailable = true;
         String styleUrl = TrackerPreferenceHelper.getInstance().getOfflineMapStyleUrl();
         try {
-            mapLibreMap.setStyle(new Style.Builder().fromUri(styleUrl), style -> {
+            Style.Builder builder = OpenStreetMapStyle.isBuiltInStyle(styleUrl)
+                    ? new Style.Builder().fromJson(OpenStreetMapStyle.styleJson())
+                    : new Style.Builder().fromUri(styleUrl);
+            mapLibreMap.setStyle(builder, style -> {
                 basemapAvailable = true;
                 refreshTrack(true);
             });

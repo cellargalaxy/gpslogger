@@ -438,18 +438,23 @@
     <string name="tracker_offline_map_max_mb_title">离线地图缓存上限（MB）</string>
     <string name="tracker_offline_map_max_mb_summary">本机离线地图占用的软上限。</string>
     <string name="tracker_offline_map_style_url_title">地图样式 URL</string>
-    <string name="tracker_offline_map_style_url_summary">MapLibre / MapTiler 等的样式 JSON URL。</string>
+    <string name="tracker_offline_map_style_url_summary">使用 builtin:openstreetmap 可启用内置 OpenStreetMap 在线底图。离线下载需要填写明确允许预取/离线使用的服务商或自托管样式 URL。</string>
     <string name="tracker_offline_map_manage_title">管理离线地图区域</string>
     <string name="tracker_offline_map_manage_summary">查看、下载、删除已缓存的地图区域。</string>
     <string name="tracker_offline_map_activity_title">离线地图区域</string>
     <string name="tracker_offline_map_no_sdk">未配置离线地图引擎。请先设置 MapLibre 样式 URL 或安装相应引擎。</string>
-    <string name="tracker_offline_map_download_current_view">下载当前视野</string>
+    <string name="tracker_offline_map_download_current_view">下载当前位置周边 5km</string>
     <string name="tracker_offline_map_delete_all">删除全部离线数据</string>
 
     <string name="tracker_offline_map_loading">正在加载离线地图区域...</string>
     <string name="tracker_offline_map_creating">正在创建离线地图区域...</string>
     <string name="tracker_offline_map_deleting">正在删除离线地图数据...</string>
     <string name="tracker_offline_map_no_location">当前没有可用位置。</string>
+    <string name="tracker_offline_map_osm_online_only">默认底图使用 OpenStreetMap 标准瓦片进行在线浏览。OpenStreetMap 公共瓦片不允许下载离线区域；如需离线下载，请改用明确允许离线使用的服务商或自托管样式 URL。</string>
+    <string name="tracker_offline_map_provider_hint">离线下载会使用当前配置的样式 URL。下载前请确认瓦片服务商允许预取和离线保存。</string>
+    <string name="tracker_offline_map_public_osm_blocked">OpenStreetMap 公共瓦片不能下载为离线区域。请使用允许离线下载的服务商或自托管样式 URL。</string>
+    <string name="tracker_offline_map_plan_no_location">暂无下载范围：请先开始记录或打开一次轨迹地图，让 GPSLogger 获取最近位置。</string>
+    <string name="tracker_offline_map_plan_format" formatted="false">计划范围：%.4f,%.4f 到 %.4f,%.4f。将保存缩放 %d-%d；继续放大超过 %d 时只会复用已下载的最高缩放瓦片，不会自动下载更高分辨率。</string>
     <string name="tracker_offline_map_regions_format">区域数：%1$d（长按可删除单个区域）</string>
     <string name="tracker_offline_map_region_row_format" formatted="false">边界 %.4f,%.4f - %.4f,%.4f  缩放 %d-%d</string>
     <string name="tracker_offline_map_download_progress_format">正在下载区域 %1$d：%2$d 字节</string>
