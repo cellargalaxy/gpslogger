@@ -4,7 +4,9 @@
       "Bash(gh api *)",
       "WebFetch(domain:api.github.com)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:maplibre.org)"
+      "WebFetch(domain:maplibre.org)",
+      "WebSearch",
+      "WebFetch(domain:gpslogger.app)"
     ]
   }
 }
