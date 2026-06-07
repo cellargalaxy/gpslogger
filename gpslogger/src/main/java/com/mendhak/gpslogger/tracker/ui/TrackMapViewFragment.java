@@ -16,6 +16,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -78,15 +79,8 @@ public class TrackMapViewFragment extends GenericViewFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        // MapLibre 必须在 inflate MapView 之前初始化。多次调用安全。
-        try {
-            OpenStreetMapStyle.configureMapLibreHttpClient(requireContext().getApplicationContext());
-            MapLibre.getInstance(requireContext().getApplicationContext());
-        } catch (Throwable t) {
-            LOG.warn("MapLibre init failed", t);
-        }
         View root = inflater.inflate(R.layout.fragment_track_map_view, container, false);
-        mapView = root.findViewById(R.id.track_map_view);
+        FrameLayout mapContainer = root.findViewById(R.id.track_map_container);
         legendBar = root.findViewById(R.id.track_map_legend);
         statusText = root.findViewById(R.id.track_map_status);
 
@@ -98,24 +92,50 @@ public class TrackMapViewFragment extends GenericViewFragment {
         locate.setOnClickListener(v -> centerOnLatest());
         fit.setOnClickListener(v -> refreshTrack(true));
 
-        mapView.onCreate(savedInstanceState);
-        mapView.addOnDidFailLoadingMapListener(errorMessage -> {
-            LOG.warn("Track map style failed to load: {}", errorMessage);
-            loadFallbackStyle();
-        });
-        mapView.getMapAsync(map -> {
-            mapLibreMap = map;
-            moveCameraToInitialPosition();
-            loadConfiguredStyle();
-            mapView.postDelayed(() -> {
-                if (mapLibreMap != null && mapLibreMap.getStyle() == null) {
-                    LOG.warn("Track map style load timed out");
-                    loadFallbackStyle();
-                }
-            }, 8000);
-        });
+        initializeMapView(mapContainer, savedInstanceState);
 
         return root;
+    }
+
+    private void initializeMapView(FrameLayout mapContainer, @Nullable Bundle savedInstanceState) {
+        if (mapContainer == null) {
+            showStatus(R.string.tracker_track_map_no_basemap);
+            return;
+        }
+        try {
+            // MapLibre 必须在创建 MapView 之前初始化。HTTP 配置失败不应影响视图打开。
+            MapLibre.getInstance(requireContext().getApplicationContext());
+            OpenStreetMapStyle.configureMapLibreHttpClient(requireContext().getApplicationContext());
+
+            mapView = new MapView(requireContext());
+            mapContainer.addView(mapView, 0, new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT));
+
+            mapView.onCreate(savedInstanceState);
+            mapView.addOnDidFailLoadingMapListener(errorMessage -> {
+                LOG.warn("Track map style failed to load: {}", errorMessage);
+                loadFallbackStyle();
+            });
+            mapView.getMapAsync(map -> {
+                mapLibreMap = map;
+                moveCameraToInitialPosition();
+                loadConfiguredStyle();
+                mapView.postDelayed(() -> {
+                    if (mapLibreMap != null && mapLibreMap.getStyle() == null) {
+                        LOG.warn("Track map style load timed out");
+                        loadFallbackStyle();
+                    }
+                }, 8000);
+            });
+        } catch (Throwable t) {
+            LOG.warn("Track map MapView init failed", t);
+            if (mapView != null) {
+                try { mapContainer.removeView(mapView); } catch (Throwable ignore) {}
+                mapView = null;
+            }
+            showStatus(R.string.tracker_track_map_no_basemap);
+        }
     }
 
     private void loadConfiguredStyle() {

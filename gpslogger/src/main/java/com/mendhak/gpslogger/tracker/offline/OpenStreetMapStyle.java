@@ -69,17 +69,21 @@ public final class OpenStreetMapStyle {
         if (httpClientConfigured) return;
         synchronized (OpenStreetMapStyle.class) {
             if (httpClientConfigured) return;
-            final String userAgent = buildUserAgent(context.getApplicationContext());
-            OkHttpClient client = new OkHttpClient.Builder()
-                    .addInterceptor(chain -> {
-                        Request request = chain.request().newBuilder()
-                                .header("User-Agent", userAgent)
-                                .build();
-                        return chain.proceed(request);
-                    })
-                    .build();
-            HttpRequestUtil.setOkHttpClient(client);
-            httpClientConfigured = true;
+            try {
+                final String userAgent = buildUserAgent(context.getApplicationContext());
+                OkHttpClient client = new OkHttpClient.Builder()
+                        .addInterceptor(chain -> {
+                            Request request = chain.request().newBuilder()
+                                    .header("User-Agent", userAgent)
+                                    .build();
+                            return chain.proceed(request);
+                        })
+                        .build();
+                HttpRequestUtil.setOkHttpClient(client);
+                httpClientConfigured = true;
+            } catch (Throwable ignore) {
+                // 地图可用性优先；User-Agent 配置失败不应导致轨迹地图闪退。
+            }
         }
     }
 
