@@ -67,6 +67,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private TextView statusText;
     private boolean basemapAvailable = true;
     private boolean fallbackStyleLoaded = false;
+    private boolean statusEphemeral = false;
 
     private final List<String> currentSourceIds = new ArrayList<>();
     private final List<String> currentLayerIds = new ArrayList<>();
@@ -113,9 +114,27 @@ public class TrackMapViewFragment extends GenericViewFragment {
                     FrameLayout.LayoutParams.MATCH_PARENT));
 
             mapView.onCreate(savedInstanceState);
+            showStatus(R.string.tracker_track_map_status_loading_style, true);
             mapView.addOnDidFailLoadingMapListener(errorMessage -> {
                 LOG.warn("Track map style failed to load: {}", errorMessage);
                 loadFallbackStyle();
+            });
+            mapView.addOnDidFinishLoadingStyleListener(() -> {
+                LOG.info("Track map style finished loading");
+                if (basemapAvailable) {
+                    showStatus(R.string.tracker_track_map_status_loading_tiles, true);
+                    // 10 秒后如果还没收到 idle 事件，提示用户瓦片可能下载缓慢或网络受限。
+                    // 非 ephemeral：避免用户拖动地图触发 idle 后把警告抹掉。
+                    mapView.postDelayed(() -> {
+                        if (statusEphemeral && basemapAvailable) {
+                            showStatus(R.string.tracker_track_map_status_tiles_slow, false);
+                        }
+                    }, 10000);
+                }
+            });
+            mapView.addOnDidBecomeIdleListener(() -> {
+                LOG.debug("Track map became idle");
+                if (basemapAvailable && statusEphemeral) hideStatus();
             });
             mapView.getMapAsync(map -> {
                 mapLibreMap = map;
@@ -144,10 +163,15 @@ public class TrackMapViewFragment extends GenericViewFragment {
         basemapAvailable = true;
         String styleUrl = TrackerPreferenceHelper.getInstance().getOfflineMapStyleUrl();
         try {
+            // 内置 OSM 走 asset:// 协议加载预打包的 style.json；
+            // 实测比 Style.Builder.fromJson 更稳定，可避免 MapLibre v11 在内联 JSON 上偶发的渲染卡顿。
             Style.Builder builder = OpenStreetMapStyle.isBuiltInStyle(styleUrl)
-                    ? new Style.Builder().fromJson(OpenStreetMapStyle.styleJson())
+                    ? new Style.Builder().fromUri(OpenStreetMapStyle.BUILTIN_ASSET_URI)
                     : new Style.Builder().fromUri(styleUrl);
+            LOG.info("Track map applying style: {}",
+                    OpenStreetMapStyle.isBuiltInStyle(styleUrl) ? OpenStreetMapStyle.BUILTIN_ASSET_URI : styleUrl);
             mapLibreMap.setStyle(builder, style -> {
+                LOG.info("Track map setStyle callback fired");
                 basemapAvailable = true;
                 refreshTrack(true);
             });
@@ -301,12 +325,22 @@ public class TrackMapViewFragment extends GenericViewFragment {
     }
 
     private void showStatus(int textResId) {
+        showStatus(textResId, false);
+    }
+
+    /**
+     * @param ephemeral 是否是「加载中」类临时态文案。idle 监听只在临时态下自动隐藏，
+     *                  防止用户左右拖动时把「无轨迹/无底图」这类持久信息一起抹掉。
+     */
+    private void showStatus(int textResId, boolean ephemeral) {
         if (statusText == null) return;
         statusText.setText(textResId);
         statusText.setVisibility(View.VISIBLE);
+        statusEphemeral = ephemeral;
     }
 
     private void hideStatus() {
+        statusEphemeral = false;
         if (statusText != null) statusText.setVisibility(View.GONE);
     }
 

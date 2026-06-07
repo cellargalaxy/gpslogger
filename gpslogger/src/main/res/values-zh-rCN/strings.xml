@@ -473,4 +473,7 @@
     <string name="tracker_track_map_refresh">刷新</string>
     <string name="tracker_track_map_locate">定位到最新点</string>
     <string name="tracker_track_map_fit">适应轨迹边界</string>
+    <string name="tracker_track_map_status_loading_style">正在加载地图样式…</string>
+    <string name="tracker_track_map_status_loading_tiles">样式已加载，正在拉取瓦片…</string>
+    <string name="tracker_track_map_status_tiles_slow">瓦片加载缓慢。请检查网络，或在设置中更换地图样式 URL。</string>
 </resources>

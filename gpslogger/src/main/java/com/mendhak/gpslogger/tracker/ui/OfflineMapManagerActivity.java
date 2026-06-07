@@ -210,7 +210,8 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
             previewMapView.onCreate(savedInstanceState);
             previewMapView.getMapAsync(map -> {
                 previewMapLibreMap = map;
-                Style.Builder builder = new Style.Builder().fromJson(OpenStreetMapStyle.styleJson());
+                // 与「轨迹地图」一致，走 asset:// 协议加载预打包样式，避免 fromJson 在某些机型上的渲染卡顿。
+                Style.Builder builder = new Style.Builder().fromUri(OpenStreetMapStyle.BUILTIN_ASSET_URI);
                 map.setStyle(builder, style -> {
                     previewReady = true;
                     renderDownloadGuidance();

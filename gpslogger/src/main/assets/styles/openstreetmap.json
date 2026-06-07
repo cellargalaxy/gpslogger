@@ -1,0 +1,27 @@
+{
+  "version": 8,
+  "name": "OpenStreetMap Standard",
+  "sources": {
+    "osm-standard": {
+      "type": "raster",
+      "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      "tileSize": 256,
+      "minzoom": 0,
+      "maxzoom": 19,
+      "attribution": "© OpenStreetMap contributors"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": { "background-color": "#E8EAED" }
+    },
+    {
+      "id": "osm-standard",
+      "type": "raster",
+      "source": "osm-standard",
+      "paint": { "raster-opacity": 1.0 }
+    }
+  ]
+}

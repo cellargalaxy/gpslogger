@@ -582,6 +582,9 @@
     <string name="tracker_track_map_refresh">Refresh</string>
     <string name="tracker_track_map_locate">Center on latest point</string>
     <string name="tracker_track_map_fit">Fit track bounds</string>
+    <string name="tracker_track_map_status_loading_style">Loading map style...</string>
+    <string name="tracker_track_map_status_loading_tiles">Style loaded, fetching tiles...</string>
+    <string name="tracker_track_map_status_tiles_slow">Tiles are slow to load. Check your network, or change the map style URL in settings.</string>
 
     <string-array name="tracker_segment_entries">
         <item>5 minutes</item>

@@ -22,6 +22,12 @@ public final class OpenStreetMapStyle {
 
     public static final String TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 
+    /**
+     * 同样内容打包到 APK assets。MapLibre 通过 asset:// 协议读取，比 Style.Builder.fromJson 更稳定，
+     * 能绕过部分 MapLibre Native v11 在解析内联 JSON 时偶发的渲染卡顿。
+     */
+    public static final String BUILTIN_ASSET_URI = "asset://styles/openstreetmap.json";
+
     private static volatile boolean httpClientConfigured;
 
     private OpenStreetMapStyle() {}
