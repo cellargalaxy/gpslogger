@@ -107,7 +107,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
         legendBar = root.findViewById(R.id.track_map_legend);
         statusText = root.findViewById(R.id.track_map_status);
         cacheVisibleTilesSwitch = root.findViewById(R.id.track_map_switch_cache_visible_tiles);
-        offlineMapStore = new MapLibreOfflineMapStore(requireContext());
         offlineMapExecutor = Executors.newSingleThreadExecutor();
 
         Button refresh = root.findViewById(R.id.track_map_btn_refresh);
@@ -126,18 +125,40 @@ public class TrackMapViewFragment extends GenericViewFragment {
 
     private void setupVisibleTileCacheSwitch() {
         if (cacheVisibleTilesSwitch == null) return;
-        cacheVisibleTilesSwitch.setChecked(TrackerPreferenceHelper.getInstance().isTrackMapVisibleTileCacheEnabled());
+        boolean cacheEnabled = false;
+        try {
+            cacheEnabled = TrackerPreferenceHelper.getInstance().isTrackMapVisibleTileCacheEnabled();
+        } catch (Throwable t) {
+            LOG.warn("Failed to read visible tile cache preference", t);
+        }
+        cacheVisibleTilesSwitch.setChecked(cacheEnabled);
         cacheVisibleTilesSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            TrackerPreferenceHelper.getInstance().setTrackMapVisibleTileCacheEnabled(isChecked);
+            try {
+                TrackerPreferenceHelper.getInstance().setTrackMapVisibleTileCacheEnabled(isChecked);
+            } catch (Throwable t) {
+                LOG.warn("Failed to update visible tile cache preference", t);
+            }
             publicOsmCacheHintShown = false;
             if (isChecked) {
-                if (offlineMapStore != null) offlineMapStore.enableAmbientCacheRetention();
+                MapLibreOfflineMapStore store = getOfflineMapStoreSafely();
+                if (store != null) store.enableAmbientCacheRetention();
                 showStatus(R.string.tracker_track_map_cache_visible_tiles_enabled, true);
                 cacheVisibleRegionIfEnabled();
             } else {
                 showStatus(R.string.tracker_track_map_cache_visible_tiles_disabled, true);
             }
         });
+    }
+
+    private MapLibreOfflineMapStore getOfflineMapStoreSafely() {
+        if (offlineMapStore != null) return offlineMapStore;
+        try {
+            offlineMapStore = new MapLibreOfflineMapStore(requireContext());
+            return offlineMapStore;
+        } catch (Throwable t) {
+            LOG.warn("Track map offline cache store init failed", t);
+            return null;
+        }
     }
 
     private void initializeMapView(FrameLayout mapContainer, @Nullable Bundle savedInstanceState) {
@@ -261,27 +282,36 @@ public class TrackMapViewFragment extends GenericViewFragment {
 
     private void moveCameraToInitialPosition() {
         if (mapLibreMap == null) return;
-        List<TrackPoint> points = loadPoints();
-        if (!points.isEmpty()) {
-            TrackPoint latest = points.get(points.size() - 1);
-            mapLibreMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latest.lat, latest.lon), 14.0));
-            return;
+        try {
+            List<TrackPoint> points = loadPoints();
+            if (!points.isEmpty()) {
+                TrackPoint latest = points.get(points.size() - 1);
+                mapLibreMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latest.lat, latest.lon), 14.0));
+                return;
+            }
+            Location loc = getCurrentLocation();
+            if (loc != null) {
+                mapLibreMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                        new LatLng(loc.getLatitude(), loc.getLongitude()), 14.0));
+                return;
+            }
+            mapLibreMap.moveCamera(CameraUpdateFactory.newCameraPosition(
+                    new CameraPosition.Builder().target(new LatLng(0, 0)).zoom(1.0).build()));
+        } catch (Throwable t) {
+            LOG.warn("Failed to move track map camera to initial position", t);
         }
-        Location loc = getCurrentLocation();
-        if (loc != null) {
-            mapLibreMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                    new LatLng(loc.getLatitude(), loc.getLongitude()), 14.0));
-            return;
-        }
-        mapLibreMap.moveCamera(CameraUpdateFactory.newCameraPosition(
-                new CameraPosition.Builder().target(new LatLng(0, 0)).zoom(1.0).build()));
     }
 
     private List<TrackPoint> loadPoints() {
-        int hours = TrackerPreferenceHelper.getInstance().getTrackMapTimeRangeHours();
-        long now = System.currentTimeMillis();
-        long from = now - hours * 3600L * 1000L;
-        return TrackCacheRepository.getInstance().queryRange(from, now);
+        try {
+            int hours = TrackerPreferenceHelper.getInstance().getTrackMapTimeRangeHours();
+            long now = System.currentTimeMillis();
+            long from = now - hours * 3600L * 1000L;
+            return TrackCacheRepository.getInstance().queryRange(from, now);
+        } catch (Throwable t) {
+            LOG.warn("Failed to load track map points", t);
+            return new ArrayList<>();
+        }
     }
 
     /**
@@ -303,7 +333,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
         currentLayerIds.clear();
         currentSourceIds.clear();
         renderedSegments.clear();
-        legendBar.removeAllViews();
+        if (legendBar != null) legendBar.removeAllViews();
 
         List<TrackPoint> points = loadPoints();
         addOrUpdateCurrentLocationIcon(style);
@@ -479,12 +509,22 @@ public class TrackMapViewFragment extends GenericViewFragment {
     }
 
     private void cacheVisibleRegionIfEnabled() {
-        if (!TrackerPreferenceHelper.getInstance().isTrackMapVisibleTileCacheEnabled()) return;
-        if (mapLibreMap == null || offlineMapStore == null || offlineMapExecutor == null) return;
+        boolean cacheEnabled;
+        try {
+            cacheEnabled = TrackerPreferenceHelper.getInstance().isTrackMapVisibleTileCacheEnabled();
+        } catch (Throwable t) {
+            LOG.warn("Failed to read visible tile cache preference", t);
+            return;
+        }
+        if (!cacheEnabled) return;
+        if (mapLibreMap == null || offlineMapExecutor == null) return;
         if (mapLibreMap.getStyle() == null) return;
 
+        MapLibreOfflineMapStore store = getOfflineMapStoreSafely();
+        if (store == null) return;
+
         // MapLibre 的 ambient cache 会保存用户实际浏览过的瓦片；开关打开时确保不再套用本项目旧的容量上限。
-        offlineMapStore.enableAmbientCacheRetention();
+        store.enableAmbientCacheRetention();
 
         if (TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicOpenStreetMapTiles()) {
             if (!publicOsmCacheHintShown) {
@@ -526,17 +566,22 @@ public class TrackMapViewFragment extends GenericViewFragment {
 
         autoCachingVisibleRegion = true;
         showStatus(R.string.tracker_track_map_cache_visible_tiles_saving, true);
-        offlineMapExecutor.execute(() -> {
-            try {
-                offlineMapStore.createRegion(name, minLat, minLon, maxLat, maxLon, minZoom, maxZoom, null);
-                postToMapView(() -> showStatus(R.string.tracker_track_map_cache_visible_tiles_saved, true));
-            } catch (Throwable t) {
-                LOG.warn("Auto-cache visible map region failed", t);
-                postToMapView(() -> showStatus(R.string.tracker_track_map_cache_visible_tiles_failed, false));
-            } finally {
-                autoCachingVisibleRegion = false;
-            }
-        });
+        try {
+            offlineMapExecutor.execute(() -> {
+                try {
+                    store.createRegion(name, minLat, minLon, maxLat, maxLon, minZoom, maxZoom, null);
+                    postToMapView(() -> showStatus(R.string.tracker_track_map_cache_visible_tiles_saved, true));
+                } catch (Throwable t) {
+                    LOG.warn("Auto-cache visible map region failed", t);
+                    postToMapView(() -> showStatus(R.string.tracker_track_map_cache_visible_tiles_failed, false));
+                } finally {
+                    autoCachingVisibleRegion = false;
+                }
+            });
+        } catch (Throwable t) {
+            autoCachingVisibleRegion = false;
+            LOG.warn("Failed to schedule visible map region cache", t);
+        }
     }
 
     private String visibleRegionKey(LatLngBounds bounds, double zoom) {
@@ -593,33 +638,37 @@ public class TrackMapViewFragment extends GenericViewFragment {
     @Override
     public void onStart() {
         super.onStart();
-        if (mapView != null) mapView.onStart();
+        runMapViewLifecycle("start", view -> view.onStart());
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        if (mapView != null) mapView.onResume();
-        // 进入视图时顺手做一次清理
-        TrackCacheRepository.getInstance().cleanupExpired();
+        runMapViewLifecycle("resume", view -> view.onResume());
+        // 进入视图时顺手做一次清理。清理失败只影响缓存维护，不应导致地图页打不开。
+        try {
+            TrackCacheRepository.getInstance().cleanupExpired();
+        } catch (Throwable t) {
+            LOG.warn("Track cache cleanup failed", t);
+        }
     }
 
     @Override
     public void onPause() {
-        if (mapView != null) mapView.onPause();
+        runMapViewLifecycle("pause", view -> view.onPause());
         super.onPause();
     }
 
     @Override
     public void onStop() {
-        if (mapView != null) mapView.onStop();
+        runMapViewLifecycle("stop", view -> view.onStop());
         super.onStop();
     }
 
     @Override
     public void onLowMemory() {
         super.onLowMemory();
-        if (mapView != null) mapView.onLowMemory();
+        runMapViewLifecycle("low memory", view -> view.onLowMemory());
     }
 
     @Override
@@ -630,7 +679,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
             offlineMapExecutor = null;
         }
         offlineMapStore = null;
-        if (mapView != null) mapView.onDestroy();
+        runMapViewLifecycle("destroy", view -> view.onDestroy());
         mapView = null;
         super.onDestroyView();
     }
@@ -638,7 +687,20 @@ public class TrackMapViewFragment extends GenericViewFragment {
     @Override
     public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
-        if (mapView != null) mapView.onSaveInstanceState(outState);
+        runMapViewLifecycle("save state", view -> view.onSaveInstanceState(outState));
+    }
+
+    private void runMapViewLifecycle(String action, MapViewAction actionRunner) {
+        if (mapView == null) return;
+        try {
+            actionRunner.run(mapView);
+        } catch (Throwable t) {
+            LOG.warn("Track map MapView {} failed", action, t);
+        }
+    }
+
+    private interface MapViewAction {
+        void run(MapView view);
     }
 
     private static class RenderedSegment {
