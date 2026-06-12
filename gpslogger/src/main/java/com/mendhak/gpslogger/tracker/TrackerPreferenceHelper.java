@@ -77,6 +77,15 @@ public final class TrackerPreferenceHelper {
                 TrackerPreferenceNames.DEFAULT_TRACK_MAP_TIME_RANGE_HOURS);
     }
 
+    public boolean isTrackMapVisibleTileCacheEnabled() {
+        return prefs.getBoolean(TrackerPreferenceNames.TRACK_MAP_CACHE_VISIBLE_TILES,
+                TrackerPreferenceNames.DEFAULT_TRACK_MAP_CACHE_VISIBLE_TILES);
+    }
+
+    public void setTrackMapVisibleTileCacheEnabled(boolean enabled) {
+        prefs.edit().putBoolean(TrackerPreferenceNames.TRACK_MAP_CACHE_VISIBLE_TILES, enabled).apply();
+    }
+
     public boolean isCustomUrlOutboxEnabled() {
         return prefs.getBoolean(TrackerPreferenceNames.CUSTOMURL_OUTBOX_ENABLED, true);
     }
@@ -96,11 +105,6 @@ public final class TrackerPreferenceHelper {
     public int getCustomUrlOutboxKeepFailedDays() {
         return getIntOrString(TrackerPreferenceNames.CUSTOMURL_OUTBOX_KEEP_FAILED_DAYS,
                 TrackerPreferenceNames.DEFAULT_CUSTOMURL_OUTBOX_KEEP_FAILED_DAYS);
-    }
-
-    public int getOfflineMapMaxMb() {
-        return getIntOrString(TrackerPreferenceNames.OFFLINE_MAP_MAX_MB,
-                TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_MAX_MB);
     }
 
     public String getOfflineMapStyleUrl() {

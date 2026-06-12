@@ -115,15 +115,6 @@
                 android:value="com.mendhak.gpslogger.GpsMainActivity" />
         </activity>
 
-        <activity
-            android:name=".tracker.ui.OfflineMapManagerActivity"
-            android:label="@string/tracker_offline_map_activity_title"
-            android:parentActivityName=".GpsMainActivity"
-            android:exported="false">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.mendhak.gpslogger.GpsMainActivity" />
-        </activity>
 
         <activity
             android:name="com.dropbox.core.android.AuthActivity"

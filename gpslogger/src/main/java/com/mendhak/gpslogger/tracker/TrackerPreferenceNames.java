@@ -13,6 +13,7 @@ public final class TrackerPreferenceNames {
     // 轨迹地图
     public static final String TRACK_MAP_SEGMENT_MINUTES = "track_map_segment_minutes";
     public static final String TRACK_MAP_TIME_RANGE_HOURS = "track_map_time_range_hours";
+    public static final String TRACK_MAP_CACHE_VISIBLE_TILES = "track_map_cache_visible_tiles";
 
     // Custom URL Outbox
     public static final String CUSTOMURL_OUTBOX_ENABLED = "customurl_outbox_enabled";
@@ -21,7 +22,6 @@ public final class TrackerPreferenceNames {
     public static final String CUSTOMURL_OUTBOX_KEEP_FAILED_DAYS = "customurl_outbox_keep_failed_days";
 
     // 离线地图
-    public static final String OFFLINE_MAP_MAX_MB = "offline_map_max_mb";
     public static final String OFFLINE_MAP_STYLE_URL = "offline_map_style_url";
 
     public static final String BUILTIN_OPENSTREETMAP_STYLE_URL = "builtin:openstreetmap";
@@ -31,9 +31,9 @@ public final class TrackerPreferenceNames {
     public static final int DEFAULT_LOCAL_TRACK_CACHE_RETENTION_HOURS = 24;
     public static final int DEFAULT_TRACK_MAP_SEGMENT_MINUTES = 15;
     public static final int DEFAULT_TRACK_MAP_TIME_RANGE_HOURS = 24;
+    public static final boolean DEFAULT_TRACK_MAP_CACHE_VISIBLE_TILES = false;
     public static final int DEFAULT_CUSTOMURL_OUTBOX_MAX_ATTEMPTS = 16;
     public static final int DEFAULT_CUSTOMURL_OUTBOX_MAX_ROWS = 200000;
     public static final int DEFAULT_CUSTOMURL_OUTBOX_KEEP_FAILED_DAYS = 30;
-    public static final int DEFAULT_OFFLINE_MAP_MAX_MB = 1024;
     public static final String DEFAULT_OFFLINE_MAP_STYLE_URL = BUILTIN_OPENSTREETMAP_STYLE_URL;
 }

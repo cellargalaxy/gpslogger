@@ -515,7 +515,9 @@
     <string name="tracker_local_cache_retention_title">Retention</string>
     <string name="tracker_local_cache_retention_summary">Points older than this are automatically deleted.</string>
     <string name="tracker_local_cache_clear_title">Clear local track cache</string>
-    <string name="tracker_local_cache_clear_summary">Delete all locally cached points immediately.</string>
+    <string name="tracker_local_cache_clear_summary">Delete all locally cached points.</string>
+    <string name="tracker_local_cache_clear_confirm_title">Clear local track cache?</string>
+    <string name="tracker_local_cache_clear_confirm_message">This deletes all locally cached track points on this device.</string>
     <string name="tracker_local_cache_cleared">Local track cache cleared</string>
 
     <string name="tracker_track_map_title">Track map</string>
@@ -544,8 +546,14 @@
     <string name="tracker_outbox_cleared_format">Cleared %1$d requests</string>
 
     <string name="tracker_offline_map_title">Offline map</string>
-    <string name="tracker_offline_map_max_mb_title">Offline map cache size (MB)</string>
-    <string name="tracker_offline_map_max_mb_summary">Soft cap for the offline map data on this device.</string>
+    <string name="tracker_offline_map_cache_size_title">Cached map data</string>
+    <string name="tracker_offline_map_cache_size_calculating">Calculating...</string>
+    <string name="tracker_offline_map_cache_size_summary_format">Currently using %1$s on this device.</string>
+    <string name="tracker_offline_map_clear_cache_title">Clear all map cache</string>
+    <string name="tracker_offline_map_clear_cache_summary">Delete downloaded map files and cached map tiles.</string>
+    <string name="tracker_offline_map_clear_confirm_title">Clear all map cache?</string>
+    <string name="tracker_offline_map_clear_confirm_message">This deletes all downloaded map regions and cached map tiles on this device.</string>
+    <string name="tracker_offline_map_cache_cleared">Map cache cleared</string>
     <string name="tracker_offline_map_style_url_title">Map style URL</string>
     <string name="tracker_offline_map_style_url_summary">Use builtin:openstreetmap for the built-in OpenStreetMap online map. Offline downloads require a provider or self-hosted style URL that permits prefetching.</string>
     <string name="tracker_offline_map_manage_title">Manage offline map regions</string>
@@ -582,6 +590,13 @@
     <string name="tracker_track_map_refresh">Refresh</string>
     <string name="tracker_track_map_locate">Center on latest point</string>
     <string name="tracker_track_map_fit">Fit track bounds</string>
+    <string name="tracker_track_map_cache_visible_tiles">Cache view</string>
+    <string name="tracker_track_map_cache_visible_tiles_enabled">Visible map tiles will be kept locally.</string>
+    <string name="tracker_track_map_cache_visible_tiles_disabled">Visible map tile caching is off.</string>
+    <string name="tracker_track_map_cache_visible_tiles_ambient_only">The default OpenStreetMap view keeps browsed tiles in the local map cache.</string>
+    <string name="tracker_track_map_cache_visible_tiles_saving">Saving the visible map area...</string>
+    <string name="tracker_track_map_cache_visible_tiles_saved">Visible map area queued for offline use.</string>
+    <string name="tracker_track_map_cache_visible_tiles_failed">Could not cache the visible map area. Check the map style provider.</string>
     <string name="tracker_track_map_status_loading_style">Loading map style...</string>
     <string name="tracker_track_map_status_loading_tiles">Style loaded, fetching tiles...</string>
     <string name="tracker_track_map_status_tiles_slow">Tiles are slow to load. Check your network, or change the map style URL in settings.</string>

@@ -4,6 +4,8 @@
  * 行为：
  * - 默认显示「现在 - 用户配置的时间范围」内的本地缓存轨迹
  * - 按用户配置的切段粒度切分并按段着色
+ * - 图例可点击：默认全部高亮，点击单个图例后仅该段保持不透明
+ * - 当前定位点用醒目的圆点图标叠加展示
  * - 即使无底图（断网且未预下载离线包）也能在纯色背景上绘出轨迹线
  *
  * 与 GPSLogger 主链路完全解耦：从 TrackCacheRepository 拉数据。
@@ -11,6 +13,7 @@
 package com.mendhak.gpslogger.tracker.ui;
 
 import android.graphics.Color;
+import android.location.Location;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,6 +25,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SwitchCompat;
 
 import com.mendhak.gpslogger.R;
 import com.mendhak.gpslogger.common.Session;
@@ -29,6 +33,7 @@ import com.mendhak.gpslogger.common.slf4j.Logs;
 import com.mendhak.gpslogger.tracker.TrackerPreferenceHelper;
 import com.mendhak.gpslogger.tracker.cache.TrackCacheRepository;
 import com.mendhak.gpslogger.tracker.db.TrackPoint;
+import com.mendhak.gpslogger.tracker.offline.MapLibreOfflineMapStore;
 import com.mendhak.gpslogger.tracker.offline.OpenStreetMapStyle;
 import com.mendhak.gpslogger.ui.fragments.display.GenericViewFragment;
 
@@ -37,9 +42,10 @@ import org.maplibre.android.camera.CameraPosition;
 import org.maplibre.android.camera.CameraUpdateFactory;
 import org.maplibre.android.geometry.LatLng;
 import org.maplibre.android.geometry.LatLngBounds;
-import org.maplibre.android.maps.MapView;
 import org.maplibre.android.maps.MapLibreMap;
+import org.maplibre.android.maps.MapView;
 import org.maplibre.android.maps.Style;
+import org.maplibre.android.style.layers.CircleLayer;
 import org.maplibre.android.style.layers.LineLayer;
 import org.maplibre.android.style.layers.PropertyFactory;
 import org.maplibre.android.style.sources.GeoJsonSource;
@@ -50,12 +56,19 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class TrackMapViewFragment extends GenericViewFragment {
 
     private static final Logger LOG = Logs.of(TrackMapViewFragment.class);
     private static final String LAYER_ID_PREFIX = "track_segment_layer_";
     private static final String SOURCE_ID_PREFIX = "track_segment_source_";
+    private static final String CURRENT_LOCATION_SOURCE_ID = "track_current_location_source";
+    private static final String CURRENT_LOCATION_HALO_LAYER_ID = "track_current_location_halo_layer";
+    private static final String CURRENT_LOCATION_DOT_LAYER_ID = "track_current_location_dot_layer";
+    private static final long ALL_SEGMENTS_SELECTED = Long.MIN_VALUE;
+    private static final long AUTO_CACHE_MIN_INTERVAL_MS = 5000L;
     private static final String FALLBACK_STYLE_JSON =
             "{\"version\":8,\"name\":\"GPSLogger Track Fallback\",\"sources\":{},\"layers\":["
                     + "{\"id\":\"background\",\"type\":\"background\","
@@ -65,12 +78,21 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private MapLibreMap mapLibreMap;
     private LinearLayout legendBar;
     private TextView statusText;
+    private SwitchCompat cacheVisibleTilesSwitch;
+    private MapLibreOfflineMapStore offlineMapStore;
+    private ExecutorService offlineMapExecutor;
     private boolean basemapAvailable = true;
     private boolean fallbackStyleLoaded = false;
     private boolean statusEphemeral = false;
+    private long selectedSegmentIndex = ALL_SEGMENTS_SELECTED;
+    private boolean autoCachingVisibleRegion = false;
+    private String lastCachedVisibleRegionKey = "";
+    private long lastCachedVisibleRegionAtMs = 0L;
+    private boolean publicOsmCacheHintShown = false;
 
     private final List<String> currentSourceIds = new ArrayList<>();
     private final List<String> currentLayerIds = new ArrayList<>();
+    private final List<RenderedSegment> renderedSegments = new ArrayList<>();
 
     public static TrackMapViewFragment newInstance() {
         return new TrackMapViewFragment();
@@ -84,6 +106,9 @@ public class TrackMapViewFragment extends GenericViewFragment {
         FrameLayout mapContainer = root.findViewById(R.id.track_map_container);
         legendBar = root.findViewById(R.id.track_map_legend);
         statusText = root.findViewById(R.id.track_map_status);
+        cacheVisibleTilesSwitch = root.findViewById(R.id.track_map_switch_cache_visible_tiles);
+        offlineMapStore = new MapLibreOfflineMapStore(requireContext());
+        offlineMapExecutor = Executors.newSingleThreadExecutor();
 
         Button refresh = root.findViewById(R.id.track_map_btn_refresh);
         Button locate = root.findViewById(R.id.track_map_btn_locate);
@@ -92,10 +117,27 @@ public class TrackMapViewFragment extends GenericViewFragment {
         refresh.setOnClickListener(v -> refreshTrack(false));
         locate.setOnClickListener(v -> centerOnLatest());
         fit.setOnClickListener(v -> refreshTrack(true));
+        setupVisibleTileCacheSwitch();
 
         initializeMapView(mapContainer, savedInstanceState);
 
         return root;
+    }
+
+    private void setupVisibleTileCacheSwitch() {
+        if (cacheVisibleTilesSwitch == null) return;
+        cacheVisibleTilesSwitch.setChecked(TrackerPreferenceHelper.getInstance().isTrackMapVisibleTileCacheEnabled());
+        cacheVisibleTilesSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            TrackerPreferenceHelper.getInstance().setTrackMapVisibleTileCacheEnabled(isChecked);
+            publicOsmCacheHintShown = false;
+            if (isChecked) {
+                if (offlineMapStore != null) offlineMapStore.enableAmbientCacheRetention();
+                showStatus(R.string.tracker_track_map_cache_visible_tiles_enabled, true);
+                cacheVisibleRegionIfEnabled();
+            } else {
+                showStatus(R.string.tracker_track_map_cache_visible_tiles_disabled, true);
+            }
+        });
     }
 
     private void initializeMapView(FrameLayout mapContainer, @Nullable Bundle savedInstanceState) {
@@ -135,6 +177,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
             mapView.addOnDidBecomeIdleListener(() -> {
                 LOG.debug("Track map became idle");
                 if (basemapAvailable && statusEphemeral) hideStatus();
+                cacheVisibleRegionIfEnabled();
             });
             // addOnDidBecomeIdleListener 在部分机型上不稳定，再追加一个 RenderingMap 监听做兜底：
             // fully=true 代表所有可见瓦片已完成渲染，等价于「瓦片到位」。
@@ -212,6 +255,8 @@ public class TrackMapViewFragment extends GenericViewFragment {
                         .target(new LatLng(latest.lat, latest.lon))
                         .zoom(Math.max(mapLibreMap.getCameraPosition().zoom, 14.0))
                         .build()));
+        Style style = mapLibreMap.getStyle();
+        if (style != null) addOrUpdateCurrentLocationIcon(style);
     }
 
     private void moveCameraToInitialPosition() {
@@ -222,15 +267,11 @@ public class TrackMapViewFragment extends GenericViewFragment {
             mapLibreMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latest.lat, latest.lon), 14.0));
             return;
         }
-        try {
-            android.location.Location loc = Session.getInstance().getCurrentLocationInfo();
-            if (loc != null) {
-                mapLibreMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                        new LatLng(loc.getLatitude(), loc.getLongitude()), 14.0));
-                return;
-            }
-        } catch (Throwable t) {
-            LOG.debug("No current location for initial track map camera", t);
+        Location loc = getCurrentLocation();
+        if (loc != null) {
+            mapLibreMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                    new LatLng(loc.getLatitude(), loc.getLongitude()), 14.0));
+            return;
         }
         mapLibreMap.moveCamera(CameraUpdateFactory.newCameraPosition(
                 new CameraPosition.Builder().target(new LatLng(0, 0)).zoom(1.0).build()));
@@ -252,7 +293,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
         Style style = mapLibreMap.getStyle();
         if (style == null) return;
 
-        // 清掉上一轮的 layer + source
+        // 清掉上一轮的轨迹 layer + source。当前位置图标单独维护，避免刷新时闪烁。
         for (String layerId : currentLayerIds) {
             try { style.removeLayer(layerId); } catch (Throwable ignore) {}
         }
@@ -261,9 +302,11 @@ public class TrackMapViewFragment extends GenericViewFragment {
         }
         currentLayerIds.clear();
         currentSourceIds.clear();
+        renderedSegments.clear();
         legendBar.removeAllViews();
 
         List<TrackPoint> points = loadPoints();
+        addOrUpdateCurrentLocationIcon(style);
         if (points.isEmpty()) {
             showStatus(R.string.tracker_track_map_empty);
             return;
@@ -277,15 +320,15 @@ public class TrackMapViewFragment extends GenericViewFragment {
         List<TrackSegmenter.Segment> segments = TrackSegmenter.segment(points, segmentMillis);
         SimpleDateFormat fmt = new SimpleDateFormat("HH:mm", Locale.getDefault());
 
-        for (int i = 0; i < segments.size(); i++) {
-            TrackSegmenter.Segment seg = segments.get(i);
+        for (TrackSegmenter.Segment seg : segments) {
             if (seg.points.size() < 2) continue;
 
+            int renderedIndex = renderedSegments.size();
             int color = TrackSegmenter.colorForIndex(seg.segmentIndex);
             String geojson = toGeoJsonLineString(seg.points);
 
-            String sourceId = SOURCE_ID_PREFIX + i;
-            String layerId = LAYER_ID_PREFIX + i;
+            String sourceId = SOURCE_ID_PREFIX + renderedIndex;
+            String layerId = LAYER_ID_PREFIX + renderedIndex;
             try {
                 style.addSource(new GeoJsonSource(sourceId, geojson));
                 LineLayer layer = new LineLayer(layerId, sourceId);
@@ -297,12 +340,16 @@ public class TrackMapViewFragment extends GenericViewFragment {
                 style.addLayer(layer);
                 currentSourceIds.add(sourceId);
                 currentLayerIds.add(layerId);
-            } catch (Throwable t) {
-                LOG.warn("Failed to add track segment layer {}", i, t);
-            }
 
-            addLegendChip(color, fmt.format(new Date(seg.startMs)) + " - " + fmt.format(new Date(seg.endMs)));
+                TextView chip = addLegendChip(seg.segmentIndex, color,
+                        fmt.format(new Date(seg.startMs)) + " - " + fmt.format(new Date(seg.endMs)));
+                renderedSegments.add(new RenderedSegment(seg.segmentIndex, layerId, color, chip));
+            } catch (Throwable t) {
+                LOG.warn("Failed to add track segment layer {}", renderedIndex, t);
+            }
         }
+        addOrUpdateCurrentLocationIcon(style);
+        applySegmentSelection();
 
         if (fitBounds) {
             LatLngBounds.Builder b = new LatLngBounds.Builder();
@@ -317,17 +364,193 @@ public class TrackMapViewFragment extends GenericViewFragment {
         }
     }
 
-    private void addLegendChip(int color, String text) {
-        if (legendBar == null) return;
+    private TextView addLegendChip(long segmentIndex, int color, String text) {
         TextView chip = new TextView(getContext());
         chip.setText("■ " + text);
         chip.setTextColor(color);
         chip.setPadding(12, 4, 12, 4);
         chip.setBackgroundColor(Color.argb(40, 0, 0, 0));
+        chip.setOnClickListener(v -> {
+            selectedSegmentIndex = selectedSegmentIndex == segmentIndex ? ALL_SEGMENTS_SELECTED : segmentIndex;
+            applySegmentSelection();
+        });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMarginEnd(8);
-        legendBar.addView(chip, lp);
+        if (legendBar != null) legendBar.addView(chip, lp);
+        return chip;
+    }
+
+    private void applySegmentSelection() {
+        if (mapLibreMap == null) return;
+        Style style = mapLibreMap.getStyle();
+        if (style == null) return;
+
+        if (selectedSegmentIndex != ALL_SEGMENTS_SELECTED) {
+            boolean exists = false;
+            for (RenderedSegment segment : renderedSegments) {
+                if (segment.segmentIndex == selectedSegmentIndex) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) selectedSegmentIndex = ALL_SEGMENTS_SELECTED;
+        }
+
+        for (RenderedSegment segment : renderedSegments) {
+            boolean active = selectedSegmentIndex == ALL_SEGMENTS_SELECTED
+                    || segment.segmentIndex == selectedSegmentIndex;
+            try {
+                LineLayer layer = (LineLayer) style.getLayer(segment.layerId);
+                if (layer != null) {
+                    layer.setProperties(PropertyFactory.lineOpacity(active ? 0.9f : 0.22f));
+                }
+            } catch (Throwable t) {
+                LOG.debug("Failed to update track segment opacity", t);
+            }
+            if (segment.chip != null) {
+                segment.chip.setTextColor(withAlpha(segment.color, active ? 255 : 85));
+                segment.chip.setBackgroundColor(active && selectedSegmentIndex != ALL_SEGMENTS_SELECTED
+                        ? Color.argb(65, 0, 0, 0)
+                        : Color.argb(40, 0, 0, 0));
+            }
+        }
+    }
+
+    private int withAlpha(int color, int alpha) {
+        return (color & 0x00FFFFFF) | ((alpha & 0xFF) << 24);
+    }
+
+    private void addOrUpdateCurrentLocationIcon(Style style) {
+        Location loc = getCurrentLocation();
+        if (loc == null) {
+            removeCurrentLocationIcon(style);
+            return;
+        }
+        String geojson = toGeoJsonPoint(loc.getLatitude(), loc.getLongitude());
+        try {
+            GeoJsonSource source = (GeoJsonSource) style.getSource(CURRENT_LOCATION_SOURCE_ID);
+            if (source != null) {
+                source.setGeoJson(geojson);
+            } else {
+                style.addSource(new GeoJsonSource(CURRENT_LOCATION_SOURCE_ID, geojson));
+            }
+            // 每次重画都把当前位置图层放回最上层，避免被新轨迹线盖住。
+            try { style.removeLayer(CURRENT_LOCATION_DOT_LAYER_ID); } catch (Throwable ignore) {}
+            try { style.removeLayer(CURRENT_LOCATION_HALO_LAYER_ID); } catch (Throwable ignore) {}
+
+            CircleLayer halo = new CircleLayer(CURRENT_LOCATION_HALO_LAYER_ID, CURRENT_LOCATION_SOURCE_ID);
+            halo.setProperties(
+                    PropertyFactory.circleColor(0xFF1E88E5),
+                    PropertyFactory.circleRadius(18.0f),
+                    PropertyFactory.circleOpacity(0.22f),
+                    PropertyFactory.circleStrokeColor(0xFFFFFFFF),
+                    PropertyFactory.circleStrokeWidth(2.0f)
+            );
+            style.addLayer(halo);
+
+            CircleLayer dot = new CircleLayer(CURRENT_LOCATION_DOT_LAYER_ID, CURRENT_LOCATION_SOURCE_ID);
+            dot.setProperties(
+                    PropertyFactory.circleColor(0xFF0D47A1),
+                    PropertyFactory.circleRadius(7.0f),
+                    PropertyFactory.circleOpacity(1.0f),
+                    PropertyFactory.circleStrokeColor(0xFFFFFFFF),
+                    PropertyFactory.circleStrokeWidth(2.5f)
+            );
+            style.addLayer(dot);
+        } catch (Throwable t) {
+            LOG.warn("Failed to draw current location icon", t);
+        }
+    }
+
+    private void removeCurrentLocationIcon(Style style) {
+        try { style.removeLayer(CURRENT_LOCATION_DOT_LAYER_ID); } catch (Throwable ignore) {}
+        try { style.removeLayer(CURRENT_LOCATION_HALO_LAYER_ID); } catch (Throwable ignore) {}
+        try { style.removeSource(CURRENT_LOCATION_SOURCE_ID); } catch (Throwable ignore) {}
+    }
+
+    private Location getCurrentLocation() {
+        try {
+            return Session.getInstance().getCurrentLocationInfo();
+        } catch (Throwable t) {
+            LOG.debug("No current location available for track map", t);
+            return null;
+        }
+    }
+
+    private void cacheVisibleRegionIfEnabled() {
+        if (!TrackerPreferenceHelper.getInstance().isTrackMapVisibleTileCacheEnabled()) return;
+        if (mapLibreMap == null || offlineMapStore == null || offlineMapExecutor == null) return;
+        if (mapLibreMap.getStyle() == null) return;
+
+        // MapLibre 的 ambient cache 会保存用户实际浏览过的瓦片；开关打开时确保不再套用本项目旧的容量上限。
+        offlineMapStore.enableAmbientCacheRetention();
+
+        if (TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicOpenStreetMapTiles()) {
+            if (!publicOsmCacheHintShown) {
+                showStatus(R.string.tracker_track_map_cache_visible_tiles_ambient_only, true);
+                publicOsmCacheHintShown = true;
+            }
+            return;
+        }
+
+        if (autoCachingVisibleRegion) return;
+        long now = System.currentTimeMillis();
+        if (now - lastCachedVisibleRegionAtMs < AUTO_CACHE_MIN_INTERVAL_MS) return;
+
+        LatLngBounds bounds;
+        double zoom;
+        try {
+            bounds = mapLibreMap.getProjection().getVisibleRegion().latLngBounds;
+            zoom = mapLibreMap.getCameraPosition().zoom;
+        } catch (Throwable t) {
+            LOG.debug("Visible region unavailable for offline caching", t);
+            return;
+        }
+        if (bounds == null || bounds.getSouthWest() == null || bounds.getNorthEast() == null) return;
+
+        String key = visibleRegionKey(bounds, zoom);
+        if (key.equals(lastCachedVisibleRegionKey)) return;
+        lastCachedVisibleRegionKey = key;
+        lastCachedVisibleRegionAtMs = now;
+
+        LatLng sw = bounds.getSouthWest();
+        LatLng ne = bounds.getNorthEast();
+        final double minLat = Math.min(sw.getLatitude(), ne.getLatitude());
+        final double maxLat = Math.max(sw.getLatitude(), ne.getLatitude());
+        final double minLon = Math.min(sw.getLongitude(), ne.getLongitude());
+        final double maxLon = Math.max(sw.getLongitude(), ne.getLongitude());
+        final int minZoom = Math.max(0, (int) Math.floor(zoom));
+        final int maxZoom = Math.min(19, Math.max(minZoom, (int) Math.ceil(zoom) + 1));
+        final String name = "Viewed " + new SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+
+        autoCachingVisibleRegion = true;
+        showStatus(R.string.tracker_track_map_cache_visible_tiles_saving, true);
+        offlineMapExecutor.execute(() -> {
+            try {
+                offlineMapStore.createRegion(name, minLat, minLon, maxLat, maxLon, minZoom, maxZoom, null);
+                postToMapView(() -> showStatus(R.string.tracker_track_map_cache_visible_tiles_saved, true));
+            } catch (Throwable t) {
+                LOG.warn("Auto-cache visible map region failed", t);
+                postToMapView(() -> showStatus(R.string.tracker_track_map_cache_visible_tiles_failed, false));
+            } finally {
+                autoCachingVisibleRegion = false;
+            }
+        });
+    }
+
+    private String visibleRegionKey(LatLngBounds bounds, double zoom) {
+        LatLng sw = bounds.getSouthWest();
+        LatLng ne = bounds.getNorthEast();
+        return String.format(Locale.US, "%.4f:%.4f:%.4f:%.4f:%d",
+                sw.getLatitude(), sw.getLongitude(), ne.getLatitude(), ne.getLongitude(), (int) Math.floor(zoom));
+    }
+
+    private void postToMapView(Runnable runnable) {
+        if (mapView == null) return;
+        mapView.post(() -> {
+            if (mapView != null && getContext() != null) runnable.run();
+        });
     }
 
     private void showStatus(int textResId) {
@@ -360,6 +583,11 @@ public class TrackMapViewFragment extends GenericViewFragment {
         }
         sb.append("]},\"properties\":{}}");
         return sb.toString();
+    }
+
+    private String toGeoJsonPoint(double lat, double lon) {
+        return "{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":["
+                + lon + ',' + lat + "]},\"properties\":{}}";
     }
 
     @Override
@@ -397,7 +625,13 @@ public class TrackMapViewFragment extends GenericViewFragment {
     @Override
     public void onDestroyView() {
         mapLibreMap = null;
+        if (offlineMapExecutor != null) {
+            offlineMapExecutor.shutdownNow();
+            offlineMapExecutor = null;
+        }
+        offlineMapStore = null;
         if (mapView != null) mapView.onDestroy();
+        mapView = null;
         super.onDestroyView();
     }
 
@@ -405,5 +639,19 @@ public class TrackMapViewFragment extends GenericViewFragment {
     public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         if (mapView != null) mapView.onSaveInstanceState(outState);
+    }
+
+    private static class RenderedSegment {
+        final long segmentIndex;
+        final String layerId;
+        final int color;
+        final TextView chip;
+
+        RenderedSegment(long segmentIndex, String layerId, int color, TextView chip) {
+            this.segmentIndex = segmentIndex;
+            this.layerId = layerId;
+            this.color = color;
+            this.chip = chip;
+        }
     }
 }

@@ -1,16 +1,20 @@
 /*
  * Travel/hiking 改造：旅行模式设置入口的 PreferenceFragment。
- * - 本地轨迹缓存：开关 + 保留时间 + 手动清空
+ * - 本地轨迹缓存：开关 + 保留时间 + 手动清空（二次确认）
  * - 轨迹地图：切段粒度 + 默认时间范围
  * - Custom URL Outbox：开关 + 重试上限 + 容量 + 失败保留天数 + 队列入口
- * - 离线地图：上限 + 样式 URL + 管理入口
+ * - 离线地图：缓存大小展示 + 清空全部缓存（二次确认）+ 样式 URL
  */
 package com.mendhak.gpslogger.tracker.ui;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -19,8 +23,17 @@ import com.mendhak.gpslogger.R;
 import com.mendhak.gpslogger.tracker.TrackerPreferenceHelper;
 import com.mendhak.gpslogger.tracker.TrackerPreferenceNames;
 import com.mendhak.gpslogger.tracker.cache.TrackCacheRepository;
+import com.mendhak.gpslogger.tracker.offline.MapLibreOfflineMapStore;
+
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class TrackerSettingsFragment extends PreferenceFragmentCompat {
+
+    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private Preference offlineMapCacheSize;
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -33,10 +46,14 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
 
         Preference clear = findPreference("tracker_clear_local_track_cache");
         if (clear != null) clear.setOnPreferenceClickListener(p -> {
-            int n = TrackCacheRepository.getInstance().clearAll();
-            Toast.makeText(getContext(),
-                    getString(R.string.tracker_local_cache_cleared) + " (" + n + ")",
-                    Toast.LENGTH_SHORT).show();
+            confirmThen(R.string.tracker_local_cache_clear_confirm_title,
+                    R.string.tracker_local_cache_clear_confirm_message,
+                    () -> {
+                        int n = TrackCacheRepository.getInstance().clearAll();
+                        Toast.makeText(getContext(),
+                                getString(R.string.tracker_local_cache_cleared) + " (" + n + ")",
+                                Toast.LENGTH_SHORT).show();
+                    });
             return true;
         });
 
@@ -46,11 +63,15 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
             return true;
         });
 
-        Preference openOfflineMap = findPreference("tracker_open_offline_map_manager");
-        if (openOfflineMap != null) openOfflineMap.setOnPreferenceClickListener(p -> {
-            startActivity(new Intent(getContext(), OfflineMapManagerActivity.class));
+        offlineMapCacheSize = findPreference("tracker_offline_map_cache_size");
+        Preference clearOfflineMap = findPreference("tracker_clear_offline_map_cache");
+        if (clearOfflineMap != null) clearOfflineMap.setOnPreferenceClickListener(p -> {
+            confirmThen(R.string.tracker_offline_map_clear_confirm_title,
+                    R.string.tracker_offline_map_clear_confirm_message,
+                    this::clearOfflineMapCacheAsync);
             return true;
         });
+        refreshOfflineMapCacheSize();
 
         // 用户改保留时间时立刻触发一次清理
         Preference retention = findPreference(TrackerPreferenceNames.LOCAL_TRACK_CACHE_RETENTION_HOURS);
@@ -76,6 +97,18 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
         TrackerPreferenceHelper.getInstance();
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        refreshOfflineMapCacheSize();
+    }
+
+    @Override
+    public void onDestroy() {
+        ioExecutor.shutdownNow();
+        super.onDestroy();
+    }
+
     private void bindSummary(String key) {
         Preference p = findPreference(key);
         if (p instanceof ListPreference) {
@@ -94,5 +127,58 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
                 return;
             }
         }
+    }
+
+    private void confirmThen(int titleRes, int messageRes, Runnable confirmedAction) {
+        Context context = getContext();
+        if (context == null) return;
+        new AlertDialog.Builder(context)
+                .setTitle(titleRes)
+                .setMessage(messageRes)
+                .setPositiveButton(R.string.ok, (dialog, which) -> confirmedAction.run())
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void refreshOfflineMapCacheSize() {
+        if (offlineMapCacheSize == null || getContext() == null) return;
+        offlineMapCacheSize.setSummary(R.string.tracker_offline_map_cache_size_calculating);
+        Context appContext = requireContext().getApplicationContext();
+        ioExecutor.execute(() -> {
+            long bytes = new MapLibreOfflineMapStore(appContext).totalBytes();
+            mainHandler.post(() -> {
+                if (!isAdded() || offlineMapCacheSize == null) return;
+                offlineMapCacheSize.setSummary(getString(R.string.tracker_offline_map_cache_size_summary_format,
+                        formatBytes(bytes)));
+            });
+        });
+    }
+
+    private void clearOfflineMapCacheAsync() {
+        if (getContext() == null) return;
+        Context appContext = requireContext().getApplicationContext();
+        Toast.makeText(getContext(), R.string.tracker_offline_map_deleting, Toast.LENGTH_SHORT).show();
+        ioExecutor.execute(() -> {
+            MapLibreOfflineMapStore store = new MapLibreOfflineMapStore(appContext);
+            store.deleteAll();
+            long bytes = store.totalBytes();
+            mainHandler.post(() -> {
+                if (!isAdded()) return;
+                Toast.makeText(getContext(), R.string.tracker_offline_map_cache_cleared, Toast.LENGTH_SHORT).show();
+                if (offlineMapCacheSize != null) {
+                    offlineMapCacheSize.setSummary(getString(R.string.tracker_offline_map_cache_size_summary_format,
+                            formatBytes(bytes)));
+                }
+            });
+        });
+    }
+
+    private String formatBytes(long bytes) {
+        if (bytes < 1024L) return bytes + " B";
+        double kb = bytes / 1024.0;
+        if (kb < 1024.0) return String.format(Locale.getDefault(), "%.1f KB", kb);
+        double mb = kb / 1024.0;
+        if (mb < 1024.0) return String.format(Locale.getDefault(), "%.1f MB", mb);
+        return String.format(Locale.getDefault(), "%.1f GB", mb / 1024.0);
     }
 }

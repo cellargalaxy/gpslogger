@@ -21,8 +21,8 @@ import com.mendhak.gpslogger.tracker.TrackerPreferenceHelper;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.maplibre.android.MapLibre;
-import org.maplibre.android.geometry.LatLngBounds;
 import org.maplibre.android.geometry.LatLng;
+import org.maplibre.android.geometry.LatLngBounds;
 import org.maplibre.android.offline.OfflineManager;
 import org.maplibre.android.offline.OfflineRegion;
 import org.maplibre.android.offline.OfflineRegionError;
@@ -30,9 +30,15 @@ import org.maplibre.android.offline.OfflineRegionStatus;
 import org.maplibre.android.offline.OfflineTilePyramidRegionDefinition;
 import org.slf4j.Logger;
 
+import java.io.File;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -41,6 +47,7 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
 
     private static final Logger LOG = Logs.of(MapLibreOfflineMapStore.class);
     private static final String META_NAME_KEY = "name";
+    private static final String[] MAP_CACHE_NAME_HINTS = new String[]{"maplibre", "mapbox", "mbgl"};
 
     private final Context context;
 
@@ -188,26 +195,67 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
 
     @Override
     public void deleteAll() {
-        OfflineManager.getInstance(context).listOfflineRegions(new OfflineManager.ListOfflineRegionsCallback() {
-            @Override
-            public void onList(OfflineRegion[] offlineRegions) {
-                if (offlineRegions == null) return;
-                for (OfflineRegion or : offlineRegions) {
-                    or.delete(new OfflineRegion.OfflineRegionDeleteCallback() {
-                        @Override public void onDelete() { /* noop */ }
-                        @Override public void onError(String error) { LOG.warn("deleteAll region error: {}", error); }
-                    });
+        final List<OfflineRegion> regions = new ArrayList<>();
+        final CountDownLatch listLatch = new CountDownLatch(1);
+        try {
+            OfflineManager.getInstance(context).listOfflineRegions(new OfflineManager.ListOfflineRegionsCallback() {
+                @Override
+                public void onList(OfflineRegion[] offlineRegions) {
+                    if (offlineRegions != null) {
+                        for (OfflineRegion or : offlineRegions) regions.add(or);
+                    }
+                    listLatch.countDown();
                 }
+
+                @Override
+                public void onError(String error) {
+                    LOG.warn("listOfflineRegions error in deleteAll: {}", error);
+                    listLatch.countDown();
+                }
+            });
+            listLatch.await(5, TimeUnit.SECONDS);
+
+            final CountDownLatch deleteLatch = new CountDownLatch(regions.size());
+            for (OfflineRegion or : regions) {
+                or.delete(new OfflineRegion.OfflineRegionDeleteCallback() {
+                    @Override public void onDelete() { deleteLatch.countDown(); }
+                    @Override public void onError(String error) {
+                        LOG.warn("deleteAll region error: {}", error);
+                        deleteLatch.countDown();
+                    }
+                });
             }
-            @Override
-            public void onError(String error) { LOG.warn("listOfflineRegions error in deleteAll: {}", error); }
-        });
+            deleteLatch.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (Throwable t) {
+            LOG.warn("deleteAll offline regions failed", t);
+        }
+        clearAmbientCache();
     }
 
     @Override
     public long totalBytes() {
-        // MapLibre 暂未直接暴露总大小；这里返回 0 由 UI 提示用户参考。
-        return 0;
+        Set<String> seen = new HashSet<>();
+        long total = 0L;
+        total += sizeOfMatchingFiles(context.getCacheDir(), seen);
+        total += sizeOfMatchingFiles(context.getFilesDir(), seen);
+        try { total += sizeOfMatchingFiles(context.getNoBackupFilesDir(), seen); } catch (Throwable ignore) {}
+        try {
+            File dbDir = context.getDatabasePath("gpslogger-map-placeholder.db").getParentFile();
+            total += sizeOfMatchingFiles(dbDir, seen);
+        } catch (Throwable ignore) {}
+        return total;
+    }
+
+    /** 打开轨迹地图的「缓存视野」时，尽量放宽 MapLibre ambient cache。失败只记日志，不影响看图。 */
+    public void enableAmbientCacheRetention() {
+        invokeFileSourceMethod("setMaximumAmbientCacheSize", Long.MAX_VALUE, false);
+    }
+
+    /** 清掉用户浏览时自然产生的瓦片缓存；离线 region 由 deleteAll 负责删除。 */
+    public void clearAmbientCache() {
+        invokeFileSourceMethod("clearAmbientCache", null, true);
     }
 
     interface RegionAction { void run(OfflineRegion region); }
@@ -234,5 +282,84 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
         } catch (JSONException e) {
             return null;
         }
+    }
+
+    private void invokeFileSourceMethod(String methodName, Long sizeBytes, boolean waitForCallback) {
+        try {
+            Class<?> callbackClass = Class.forName("org.maplibre.android.offline.OfflineManager$FileSourceCallback");
+            final CountDownLatch latch = new CountDownLatch(1);
+            Object callback = Proxy.newProxyInstance(
+                    callbackClass.getClassLoader(),
+                    new Class[]{callbackClass},
+                    (proxy, method, args) -> {
+                        String name = method.getName();
+                        if ("onError".equals(name) && args != null && args.length > 0) {
+                            LOG.warn("{} failed: {}", methodName, String.valueOf(args[0]));
+                            latch.countDown();
+                        } else if ("onSuccess".equals(name)) {
+                            latch.countDown();
+                        }
+                        return null;
+                    });
+
+            OfflineManager manager = OfflineManager.getInstance(context);
+            Method method;
+            if (sizeBytes == null) {
+                method = manager.getClass().getMethod(methodName, callbackClass);
+                method.invoke(manager, callback);
+            } else {
+                method = manager.getClass().getMethod(methodName, long.class, callbackClass);
+                method.invoke(manager, sizeBytes, callback);
+            }
+            if (waitForCallback) latch.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (Throwable t) {
+            LOG.warn("MapLibre file source method {} unavailable", methodName, t);
+        }
+    }
+
+    private long sizeOfMatchingFiles(File file, Set<String> seen) {
+        if (file == null || !file.exists()) return 0L;
+        String key;
+        try { key = file.getCanonicalPath(); }
+        catch (Throwable t) { key = file.getAbsolutePath(); }
+        if (!seen.add(key)) return 0L;
+
+        boolean matched = matchesMapCacheName(file);
+        if (file.isFile()) return matched ? file.length() : 0L;
+
+        long total = 0L;
+        File[] children = file.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                total += matched ? sizeOfAllFiles(child, seen) : sizeOfMatchingFiles(child, seen);
+            }
+        }
+        return total;
+    }
+
+    private long sizeOfAllFiles(File file, Set<String> seen) {
+        if (file == null || !file.exists()) return 0L;
+        String key;
+        try { key = file.getCanonicalPath(); }
+        catch (Throwable t) { key = file.getAbsolutePath(); }
+        if (!seen.add(key)) return 0L;
+        if (file.isFile()) return file.length();
+
+        long total = 0L;
+        File[] children = file.listFiles();
+        if (children != null) {
+            for (File child : children) total += sizeOfAllFiles(child, seen);
+        }
+        return total;
+    }
+
+    private boolean matchesMapCacheName(File file) {
+        String name = file.getName().toLowerCase(Locale.US);
+        for (String hint : MAP_CACHE_NAME_HINTS) {
+            if (name.contains(hint)) return true;
+        }
+        return false;
     }
 }

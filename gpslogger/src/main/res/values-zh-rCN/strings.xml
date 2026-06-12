@@ -406,7 +406,9 @@
     <string name="tracker_local_cache_retention_title">本地轨迹保留时间</string>
     <string name="tracker_local_cache_retention_summary">超过该时间的轨迹点会被自动清理。</string>
     <string name="tracker_local_cache_clear_title">清空本地轨迹缓存</string>
-    <string name="tracker_local_cache_clear_summary">立即删除所有本地缓存的轨迹点。</string>
+    <string name="tracker_local_cache_clear_summary">删除所有本地缓存的轨迹点。</string>
+    <string name="tracker_local_cache_clear_confirm_title">清空本地轨迹缓存？</string>
+    <string name="tracker_local_cache_clear_confirm_message">这会删除本机保存的所有本地轨迹点。</string>
     <string name="tracker_local_cache_cleared">本地轨迹缓存已清空</string>
 
     <string name="tracker_track_map_title">轨迹地图</string>
@@ -435,8 +437,14 @@
     <string name="tracker_outbox_cleared_format">已清空 %1$d 条请求</string>
 
     <string name="tracker_offline_map_title">离线地图</string>
-    <string name="tracker_offline_map_max_mb_title">离线地图缓存上限（MB）</string>
-    <string name="tracker_offline_map_max_mb_summary">本机离线地图占用的软上限。</string>
+    <string name="tracker_offline_map_cache_size_title">已缓存地图文件大小</string>
+    <string name="tracker_offline_map_cache_size_calculating">正在计算...</string>
+    <string name="tracker_offline_map_cache_size_summary_format">当前占用 %1$s。</string>
+    <string name="tracker_offline_map_clear_cache_title">清除全部地图缓存</string>
+    <string name="tracker_offline_map_clear_cache_summary">删除已下载的地图文件和已浏览过的地图瓦片缓存。</string>
+    <string name="tracker_offline_map_clear_confirm_title">清除全部地图缓存？</string>
+    <string name="tracker_offline_map_clear_confirm_message">这会删除本机所有已下载地图区域和已缓存地图瓦片。</string>
+    <string name="tracker_offline_map_cache_cleared">地图缓存已清除</string>
     <string name="tracker_offline_map_style_url_title">地图样式 URL</string>
     <string name="tracker_offline_map_style_url_summary">使用 builtin:openstreetmap 可启用内置 OpenStreetMap 在线底图。离线下载需要填写明确允许预取/离线使用的服务商或自托管样式 URL。</string>
     <string name="tracker_offline_map_manage_title">管理离线地图区域</string>
@@ -473,6 +481,13 @@
     <string name="tracker_track_map_refresh">刷新</string>
     <string name="tracker_track_map_locate">定位到最新点</string>
     <string name="tracker_track_map_fit">适应轨迹边界</string>
+    <string name="tracker_track_map_cache_visible_tiles">缓存视野</string>
+    <string name="tracker_track_map_cache_visible_tiles_enabled">当前视野的地图瓦片会保留在本地。</string>
+    <string name="tracker_track_map_cache_visible_tiles_disabled">已关闭视野地图缓存。</string>
+    <string name="tracker_track_map_cache_visible_tiles_ambient_only">默认 OpenStreetMap 视图会把已浏览瓦片保留在本地地图缓存中。</string>
+    <string name="tracker_track_map_cache_visible_tiles_saving">正在保存当前可见地图区域…</string>
+    <string name="tracker_track_map_cache_visible_tiles_saved">当前可见地图区域已加入离线缓存。</string>
+    <string name="tracker_track_map_cache_visible_tiles_failed">无法缓存当前可见地图区域，请检查地图样式服务商。</string>
     <string name="tracker_track_map_status_loading_style">正在加载地图样式…</string>
     <string name="tracker_track_map_status_loading_tiles">样式已加载，正在拉取瓦片…</string>
     <string name="tracker_track_map_status_tiles_slow">瓦片加载缓慢。请检查网络，或在设置中更换地图样式 URL。</string>

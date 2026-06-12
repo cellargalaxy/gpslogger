@@ -102,12 +102,16 @@
         android:title="@string/tracker_offline_map_title"
         app:iconSpaceReserved="false">
 
-        <EditTextPreference
-            android:defaultValue="1024"
-            android:key="offline_map_max_mb"
-            android:title="@string/tracker_offline_map_max_mb_title"
-            android:summary="@string/tracker_offline_map_max_mb_summary"
-            android:inputType="number"
+        <Preference
+            android:key="tracker_offline_map_cache_size"
+            android:title="@string/tracker_offline_map_cache_size_title"
+            android:summary="@string/tracker_offline_map_cache_size_calculating"
+            app:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="tracker_clear_offline_map_cache"
+            android:title="@string/tracker_offline_map_clear_cache_title"
+            android:summary="@string/tracker_offline_map_clear_cache_summary"
             app:iconSpaceReserved="false" />
 
         <EditTextPreference
@@ -115,12 +119,6 @@
             android:key="offline_map_style_url"
             android:title="@string/tracker_offline_map_style_url_title"
             android:summary="@string/tracker_offline_map_style_url_summary"
-            app:iconSpaceReserved="false" />
-
-        <Preference
-            android:key="tracker_open_offline_map_manager"
-            android:title="@string/tracker_offline_map_manage_title"
-            android:summary="@string/tracker_offline_map_manage_summary"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
