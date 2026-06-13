@@ -397,8 +397,8 @@
     <!-- Travel/hiking 改造：新增中文翻译。集中放在文件末尾，便于 merge upstream master 时减少冲突。 -->
     <string name="view_track_map">轨迹地图</string>
 
-    <string name="tracker_settings_title">旅行模式</string>
-    <string name="tracker_settings_summary">本地轨迹缓存、离线地图、Custom URL 队列</string>
+    <string name="tracker_settings_title">轨迹与地图</string>
+    <string name="tracker_settings_summary">本地轨迹缓存、轨迹地图、离线地图、Custom URL 队列</string>
 
     <string name="tracker_local_cache_title">本地轨迹缓存</string>
     <string name="tracker_local_cache_enabled_title">启用本地轨迹缓存</string>

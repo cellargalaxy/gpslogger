@@ -842,7 +842,7 @@ public class GpsMainActivity extends AppCompatActivity
         materialDrawer.addItem(GpsLoggerDrawerItem.newPrimary(R.string.pref_general_title, R.string.pref_general_summary, R.drawable.settings, 1000));
         materialDrawer.addItem(GpsLoggerDrawerItem.newPrimary(R.string.pref_logging_title, R.string.pref_logging_summary, R.drawable.loggingsettings, 1001));
         materialDrawer.addItem(GpsLoggerDrawerItem.newPrimary(R.string.pref_performance_title, R.string.pref_performance_summary, R.drawable.performance, 1002));
-        // Travel/hiking 改造：新增旅行模式设置入口。drawable 复用 performance 图标，避免引入新资源。
+        // Travel/hiking 改造：新增轨迹与地图设置入口。drawable 复用 performance 图标，避免引入新资源。
         materialDrawer.addItem(GpsLoggerDrawerItem.newPrimary(R.string.tracker_settings_title, R.string.tracker_settings_summary, R.drawable.performance, 1030));
         materialDrawer.addItem(new DividerDrawerItem());
 
@@ -907,7 +907,7 @@ public class GpsMainActivity extends AppCompatActivity
                     case 1020:
                         launchPreferenceScreen(MainPreferenceActivity.PREFERENCE_FRAGMENTS.CUSTOMURL);
                         break;
-                    // Travel/hiking 改造：旅行模式 drawer 入口。
+                    // Travel/hiking 改造：轨迹与地图 drawer 入口。
                     case 1030:
                         launchPreferenceScreen(MainPreferenceActivity.PREFERENCE_FRAGMENTS.TRACKER);
                         break;

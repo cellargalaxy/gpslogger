@@ -1,5 +1,5 @@
 /*
- * Travel/hiking 改造：旅行模式设置入口的 PreferenceFragment。
+ * Travel/hiking 改造：轨迹与地图设置入口的 PreferenceFragment。
  * - 本地轨迹缓存：开关 + 保留时间 + 手动清空（二次确认）
  * - 轨迹地图：切段粒度 + 默认时间范围
  * - Custom URL Outbox：开关 + 重试上限 + 容量 + 失败保留天数 + 队列入口

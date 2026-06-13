@@ -18,8 +18,8 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -109,9 +109,9 @@ public class TrackMapViewFragment extends GenericViewFragment {
         cacheVisibleTilesSwitch = root.findViewById(R.id.track_map_switch_cache_visible_tiles);
         offlineMapExecutor = Executors.newSingleThreadExecutor();
 
-        Button refresh = root.findViewById(R.id.track_map_btn_refresh);
-        Button locate = root.findViewById(R.id.track_map_btn_locate);
-        Button fit = root.findViewById(R.id.track_map_btn_fit);
+        ImageButton refresh = root.findViewById(R.id.track_map_btn_refresh);
+        ImageButton locate = root.findViewById(R.id.track_map_btn_locate);
+        ImageButton fit = root.findViewById(R.id.track_map_btn_fit);
 
         refresh.setOnClickListener(v -> refreshTrack(false));
         locate.setOnClickListener(v -> centerOnLatest());

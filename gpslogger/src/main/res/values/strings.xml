@@ -506,8 +506,8 @@
     <!-- Travel/hiking 改造：新增字符串。集中放在文件末尾，便于 merge upstream master 时减少冲突。 -->
     <string name="view_track_map">Track Map</string>
 
-    <string name="tracker_settings_title">Travel mode</string>
-    <string name="tracker_settings_summary">Local track cache, offline map, Custom URL outbox</string>
+    <string name="tracker_settings_title">Tracks and maps</string>
+    <string name="tracker_settings_summary">Track cache, track map, offline map, Custom URL outbox</string>
 
     <string name="tracker_local_cache_title">Local track cache</string>
     <string name="tracker_local_cache_enabled_title">Enable local track cache</string>
