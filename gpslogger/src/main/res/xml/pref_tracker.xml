@@ -67,6 +67,16 @@
             android:summary="@string/tracker_offline_map_cache_size_calculating"
             app:iconSpaceReserved="false" />
 
+        <ListPreference
+            android:defaultValue="1024"
+            android:key="offline_map_max_cache_mb"
+            android:entries="@array/tracker_offline_map_max_cache_entries"
+            android:entryValues="@array/tracker_offline_map_max_cache_values"
+            android:title="@string/tracker_offline_map_max_cache_title"
+            android:summary="@string/tracker_offline_map_max_cache_summary"
+            android:dialogTitle="@string/tracker_offline_map_max_cache_title"
+            app:iconSpaceReserved="false" />
+
         <Preference
             android:key="tracker_clear_offline_map_cache"
             android:title="@string/tracker_offline_map_clear_cache_title"

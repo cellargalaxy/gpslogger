@@ -96,6 +96,17 @@ public final class TrackerPreferenceHelper {
         return s.trim();
     }
 
+    public int getOfflineMapMaxCacheMb() {
+        int mb = getIntOrString(TrackerPreferenceNames.OFFLINE_MAP_MAX_CACHE_MB,
+                TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_MAX_CACHE_MB);
+        if (mb <= 0) return TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_MAX_CACHE_MB;
+        return mb;
+    }
+
+    public long getOfflineMapMaxCacheBytes() {
+        return getOfflineMapMaxCacheMb() * 1024L * 1024L;
+    }
+
     public boolean isOfflineMapUsingPublicOpenStreetMapTiles() {
         return OpenStreetMapStyle.usesPublicOpenStreetMapTiles(getOfflineMapStyleUrl());
     }

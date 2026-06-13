@@ -17,6 +17,7 @@ import android.content.Context;
 
 import com.mendhak.gpslogger.common.slf4j.Logs;
 import com.mendhak.gpslogger.tracker.TrackerPreferenceHelper;
+import com.mendhak.gpslogger.tracker.TrackerPreferenceNames;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -34,12 +35,15 @@ import org.slf4j.Logger;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class MapLibreOfflineMapStore implements OfflineMapStore {
@@ -133,6 +137,7 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
         final byte[] metadata = metaJson.toString().getBytes(StandardCharsets.UTF_8);
 
         final AtomicReference<Long> outId = new AtomicReference<>(-1L);
+        final AtomicBoolean trimmedAfterComplete = new AtomicBoolean(false);
         final CountDownLatch latch = new CountDownLatch(1);
 
         OfflineManager.getInstance(context).createOfflineRegion(definition, metadata,
@@ -149,6 +154,13 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
                                     status.getRequiredResourceCount() > 0
                                             ? status.getCompletedResourceCount() : 0,
                                     status.isComplete());
+                        }
+                        if (status.isComplete() && trimmedAfterComplete.compareAndSet(false, true)) {
+                            try {
+                                trimToConfiguredLimit();
+                            } catch (Throwable t) {
+                                LOG.warn("trim offline map cache after download failed", t);
+                            }
                         }
                     }
 
@@ -248,10 +260,36 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
         return total;
     }
 
-    /** 打开轨迹地图的「缓存视野」时，尽量放宽 MapLibre ambient cache。失败只记日志，不影响看图。 */
+    /** 打开轨迹地图的「缓存视野」时，按用户配置设置 MapLibre ambient cache 上限。失败只记日志，不影响看图。 */
     public void enableAmbientCacheRetention() {
+        setAmbientCacheLimit(TrackerPreferenceHelper.getInstance().getOfflineMapMaxCacheBytes());
+    }
+
+    public long trimToConfiguredLimit() {
+        return trimToLimit(TrackerPreferenceHelper.getInstance().getOfflineMapMaxCacheBytes());
+    }
+
+    public long trimToLimit(long maxBytes) {
+        if (maxBytes <= 0L) {
+            maxBytes = TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_MAX_CACHE_MB * 1024L * 1024L;
+        }
+        setAmbientCacheLimit(maxBytes);
+
+        long total = totalBytes();
+        if (total <= maxBytes) return total;
+
+        deleteOldestOfflineRegionsUntil(maxBytes);
+        total = totalBytes();
+        if (total <= maxBytes) return total;
+
+        deleteOldestMatchingFilesUntil(maxBytes);
+        packDatabase();
+        return totalBytes();
+    }
+
+    private void setAmbientCacheLimit(long maxBytes) {
         runFileSourceOperation("setMaximumAmbientCacheSize",
-                (manager, callback) -> manager.setMaximumAmbientCacheSize(Long.MAX_VALUE, callback),
+                (manager, callback) -> manager.setMaximumAmbientCacheSize(maxBytes, callback),
                 false);
     }
 
@@ -272,6 +310,140 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
         runFileSourceOperation("packDatabase",
                 (manager, callback) -> manager.packDatabase(callback),
                 true);
+    }
+
+    private void deleteOldestOfflineRegionsUntil(long maxBytes) {
+        List<OfflineRegion> regions = listOfflineRegionsSync();
+        Collections.sort(regions, new Comparator<OfflineRegion>() {
+            @Override
+            public int compare(OfflineRegion a, OfflineRegion b) {
+                if (a.getId() == b.getId()) return 0;
+                return a.getId() < b.getId() ? -1 : 1;
+            }
+        });
+
+        for (OfflineRegion region : regions) {
+            if (totalBytes() <= maxBytes) return;
+            LOG.info("Deleting oldest offline map region {} to enforce cache limit", region.getId());
+            deleteOfflineRegionSync(region);
+            packDatabase();
+        }
+    }
+
+    private List<OfflineRegion> listOfflineRegionsSync() {
+        final List<OfflineRegion> regions = new ArrayList<>();
+        final CountDownLatch listLatch = new CountDownLatch(1);
+        try {
+            OfflineManager.getInstance(context).listOfflineRegions(new OfflineManager.ListOfflineRegionsCallback() {
+                @Override
+                public void onList(OfflineRegion[] offlineRegions) {
+                    if (offlineRegions != null) {
+                        for (OfflineRegion or : offlineRegions) regions.add(or);
+                    }
+                    listLatch.countDown();
+                }
+
+                @Override
+                public void onError(String error) {
+                    LOG.warn("listOfflineRegions error while trimming cache: {}", error);
+                    listLatch.countDown();
+                }
+            });
+            listLatch.await(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (Throwable t) {
+            LOG.warn("list offline regions for cache trim failed", t);
+        }
+        return regions;
+    }
+
+    private void deleteOfflineRegionSync(OfflineRegion region) {
+        final CountDownLatch deleteLatch = new CountDownLatch(1);
+        try {
+            region.delete(new OfflineRegion.OfflineRegionDeleteCallback() {
+                @Override public void onDelete() { deleteLatch.countDown(); }
+                @Override public void onError(String error) {
+                    LOG.warn("delete old offline map region error: {}", error);
+                    deleteLatch.countDown();
+                }
+            });
+            deleteLatch.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (Throwable t) {
+            LOG.warn("delete old offline map region failed", t);
+        }
+    }
+
+    private long deleteOldestMatchingFilesUntil(long maxBytes) {
+        Set<String> seen = new HashSet<>();
+        List<File> files = new ArrayList<>();
+        for (File root : mapCacheRoots()) collectMatchingFiles(root, seen, files);
+
+        long total = 0L;
+        for (File file : files) total += file.length();
+        if (total <= maxBytes) return total;
+
+        Collections.sort(files, new Comparator<File>() {
+            @Override
+            public int compare(File a, File b) {
+                long am = a.lastModified();
+                long bm = b.lastModified();
+                if (am == bm) return a.getAbsolutePath().compareTo(b.getAbsolutePath());
+                return am < bm ? -1 : 1;
+            }
+        });
+
+        for (File file : files) {
+            if (total <= maxBytes) break;
+            long length = file.length();
+            if (file.delete()) {
+                total -= length;
+                LOG.info("Deleted old map cache file {}", file.getAbsolutePath());
+            } else {
+                LOG.warn("Failed to delete old map cache file {}", file.getAbsolutePath());
+            }
+        }
+        return total;
+    }
+
+    private void collectMatchingFiles(File file, Set<String> seen, List<File> out) {
+        if (file == null || !file.exists()) return;
+        String key;
+        try { key = file.getCanonicalPath(); }
+        catch (Throwable t) { key = file.getAbsolutePath(); }
+        if (!seen.add(key)) return;
+
+        boolean matched = matchesMapCacheName(file);
+        if (file.isFile()) {
+            if (matched) out.add(file);
+            return;
+        }
+
+        File[] children = file.listFiles();
+        if (children == null) return;
+        for (File child : children) {
+            if (matched) collectAllFiles(child, seen, out);
+            else collectMatchingFiles(child, seen, out);
+        }
+    }
+
+    private void collectAllFiles(File file, Set<String> seen, List<File> out) {
+        if (file == null || !file.exists()) return;
+        String key;
+        try { key = file.getCanonicalPath(); }
+        catch (Throwable t) { key = file.getAbsolutePath(); }
+        if (!seen.add(key)) return;
+        if (file.isFile()) {
+            out.add(file);
+            return;
+        }
+
+        File[] children = file.listFiles();
+        if (children != null) {
+            for (File child : children) collectAllFiles(child, seen, out);
+        }
     }
 
     interface RegionAction { void run(OfflineRegion region); }

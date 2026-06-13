@@ -2,7 +2,7 @@
  * Travel/hiking 改造：轨迹与地图设置入口的 PreferenceFragment。
  * - 本地轨迹缓存：开关 + 保留时间 + 手动清空（二次确认）
  * - 轨迹地图：切段粒度 + 默认时间范围
- * - 离线地图：缓存大小展示 + 清空全部缓存（二次确认）+ 样式 URL
+ * - 离线地图：缓存大小展示 + 最大地图缓存大小 + 清空全部缓存（二次确认）+ 样式 URL
  */
 package com.mendhak.gpslogger.tracker.ui;
 
@@ -41,6 +41,7 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
         bindSummary(TrackerPreferenceNames.LOCAL_TRACK_CACHE_RETENTION_HOURS);
         bindSummary(TrackerPreferenceNames.TRACK_MAP_SEGMENT_MINUTES);
         bindSummary(TrackerPreferenceNames.TRACK_MAP_TIME_RANGE_HOURS);
+        bindSummary(TrackerPreferenceNames.OFFLINE_MAP_MAX_CACHE_MB);
 
         Preference clear = findPreference("tracker_clear_local_track_cache");
         if (clear != null) clear.setOnPreferenceClickListener(p -> {
@@ -83,6 +84,12 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
         Preference timeRange = findPreference(TrackerPreferenceNames.TRACK_MAP_TIME_RANGE_HOURS);
         if (timeRange != null) timeRange.setOnPreferenceChangeListener((p, v) -> {
             bindListSummary((ListPreference) p, String.valueOf(v));
+            return true;
+        });
+        Preference offlineMapMaxCache = findPreference(TrackerPreferenceNames.OFFLINE_MAP_MAX_CACHE_MB);
+        if (offlineMapMaxCache != null) offlineMapMaxCache.setOnPreferenceChangeListener((p, v) -> {
+            bindListSummary((ListPreference) p, String.valueOf(v));
+            trimOfflineMapCacheAsync(maxCacheBytesFromValue(v));
             return true;
         });
 
@@ -145,6 +152,33 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
                         formatBytes(bytes)));
             });
         });
+    }
+
+    private void trimOfflineMapCacheAsync(long maxBytes) {
+        if (getContext() == null) return;
+        Context appContext = requireContext().getApplicationContext();
+        ioExecutor.execute(() -> {
+            MapLibreOfflineMapStore store = new MapLibreOfflineMapStore(appContext);
+            long bytes = store.trimToLimit(maxBytes);
+            mainHandler.post(() -> {
+                if (!isAdded() || offlineMapCacheSize == null) return;
+                offlineMapCacheSize.setSummary(getString(R.string.tracker_offline_map_cache_size_summary_format,
+                        formatBytes(bytes)));
+            });
+        });
+    }
+
+    private long maxCacheBytesFromValue(Object value) {
+        int mb = TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_MAX_CACHE_MB;
+        if (value != null) {
+            try {
+                mb = Integer.parseInt(String.valueOf(value).trim());
+            } catch (NumberFormatException ignore) {
+                mb = TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_MAX_CACHE_MB;
+            }
+        }
+        if (mb <= 0) mb = TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_MAX_CACHE_MB;
+        return mb * 1024L * 1024L;
     }
 
     private void clearOfflineMapCacheAsync() {

@@ -531,6 +531,8 @@
     <string name="tracker_offline_map_cache_size_title">Cached map data</string>
     <string name="tracker_offline_map_cache_size_calculating">Calculating...</string>
     <string name="tracker_offline_map_cache_size_summary_format">Currently using %1$s on this device.</string>
+    <string name="tracker_offline_map_max_cache_title">Maximum map cache size</string>
+    <string name="tracker_offline_map_max_cache_summary">When cached map data exceeds this size, the oldest cache is deleted automatically.</string>
     <string name="tracker_offline_map_clear_cache_title">Clear all map cache</string>
     <string name="tracker_offline_map_clear_cache_summary">Delete downloaded map files and cached map tiles.</string>
     <string name="tracker_offline_map_clear_confirm_title">Clear all map cache?</string>
@@ -573,7 +575,7 @@
     <string name="tracker_track_map_locate">Center on latest point</string>
     <string name="tracker_track_map_fit">Fit track bounds</string>
     <string name="tracker_track_map_cache_visible_tiles">Cache view</string>
-    <string name="tracker_track_map_cache_visible_tiles_enabled">Visible map tiles will be kept locally.</string>
+    <string name="tracker_track_map_cache_visible_tiles_enabled">Visible map tiles will be kept locally up to the configured cache limit.</string>
     <string name="tracker_track_map_cache_visible_tiles_disabled">Visible map tile caching is off.</string>
     <string name="tracker_track_map_cache_visible_tiles_ambient_only">The default OpenStreetMap view keeps browsed tiles in the local map cache.</string>
     <string name="tracker_track_map_cache_visible_tiles_saving">Saving the visible map area...</string>
@@ -596,6 +598,23 @@
         <item>15</item>
         <item>30</item>
         <item>60</item>
+    </string-array>
+
+    <string-array name="tracker_offline_map_max_cache_entries">
+        <item>256 MB</item>
+        <item>512 MB</item>
+        <item>1 GB</item>
+        <item>2 GB</item>
+        <item>5 GB</item>
+        <item>10 GB</item>
+    </string-array>
+    <string-array name="tracker_offline_map_max_cache_values">
+        <item>256</item>
+        <item>512</item>
+        <item>1024</item>
+        <item>2048</item>
+        <item>5120</item>
+        <item>10240</item>
     </string-array>
 
     <string-array name="tracker_retention_entries">

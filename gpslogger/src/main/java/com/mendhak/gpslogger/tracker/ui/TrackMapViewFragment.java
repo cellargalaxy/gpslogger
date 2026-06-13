@@ -523,7 +523,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
         MapLibreOfflineMapStore store = getOfflineMapStoreSafely();
         if (store == null) return;
 
-        // MapLibre 的 ambient cache 会保存用户实际浏览过的瓦片；开关打开时确保不再套用本项目旧的容量上限。
+        // MapLibre 的 ambient cache 会保存用户实际浏览过的瓦片；开关打开时同步应用用户配置的缓存上限。
         store.enableAmbientCacheRetention();
 
         if (TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicOpenStreetMapTiles()) {

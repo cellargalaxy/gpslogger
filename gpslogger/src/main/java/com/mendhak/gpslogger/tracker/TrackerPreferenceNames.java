@@ -18,6 +18,7 @@ public final class TrackerPreferenceNames {
 
     // 离线地图
     public static final String OFFLINE_MAP_STYLE_URL = "offline_map_style_url";
+    public static final String OFFLINE_MAP_MAX_CACHE_MB = "offline_map_max_cache_mb";
 
     public static final String BUILTIN_OPENSTREETMAP_STYLE_URL = "builtin:openstreetmap";
     public static final String LEGACY_MAPLIBRE_DEMO_STYLE_URL = "https://demotiles.maplibre.org/style.json";
@@ -28,4 +29,5 @@ public final class TrackerPreferenceNames {
     public static final int DEFAULT_TRACK_MAP_TIME_RANGE_HOURS = 24;
     public static final boolean DEFAULT_TRACK_MAP_CACHE_VISIBLE_TILES = false;
     public static final String DEFAULT_OFFLINE_MAP_STYLE_URL = BUILTIN_OPENSTREETMAP_STYLE_URL;
+    public static final int DEFAULT_OFFLINE_MAP_MAX_CACHE_MB = 1024;
 }
