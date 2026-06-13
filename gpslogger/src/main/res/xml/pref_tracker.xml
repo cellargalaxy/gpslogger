@@ -56,47 +56,6 @@
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory
-        android:title="@string/tracker_outbox_title"
-        app:iconSpaceReserved="false">
-
-        <SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:key="customurl_outbox_enabled"
-            android:title="@string/tracker_outbox_enabled_title"
-            android:summary="@string/tracker_outbox_enabled_summary"
-            app:iconSpaceReserved="false" />
-
-        <EditTextPreference
-            android:defaultValue="16"
-            android:key="customurl_outbox_max_attempts"
-            android:title="@string/tracker_outbox_max_attempts_title"
-            android:summary="@string/tracker_outbox_max_attempts_summary"
-            android:inputType="number"
-            app:iconSpaceReserved="false" />
-
-        <EditTextPreference
-            android:defaultValue="200000"
-            android:key="customurl_outbox_max_rows"
-            android:title="@string/tracker_outbox_max_rows_title"
-            android:summary="@string/tracker_outbox_max_rows_summary"
-            android:inputType="number"
-            app:iconSpaceReserved="false" />
-
-        <EditTextPreference
-            android:defaultValue="30"
-            android:key="customurl_outbox_keep_failed_days"
-            android:title="@string/tracker_outbox_keep_failed_days_title"
-            android:summary="@string/tracker_outbox_keep_failed_days_summary"
-            android:inputType="number"
-            app:iconSpaceReserved="false" />
-
-        <Preference
-            android:key="tracker_open_outbox_queue"
-            android:title="@string/tracker_outbox_queue_title"
-            android:summary="@string/tracker_outbox_queue_summary"
-            app:iconSpaceReserved="false" />
-    </PreferenceCategory>
 
     <PreferenceCategory
         android:title="@string/tracker_offline_map_title"

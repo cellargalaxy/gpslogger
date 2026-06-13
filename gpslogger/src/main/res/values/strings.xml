@@ -507,7 +507,7 @@
     <string name="view_track_map">Track Map</string>
 
     <string name="tracker_settings_title">Tracks and maps</string>
-    <string name="tracker_settings_summary">Track cache, track map, offline map, Custom URL outbox</string>
+    <string name="tracker_settings_summary">Track cache, track map, offline map</string>
 
     <string name="tracker_local_cache_title">Local track cache</string>
     <string name="tracker_local_cache_enabled_title">Enable local track cache</string>
@@ -526,24 +526,6 @@
     <string name="tracker_track_map_range_title">Default time range</string>
     <string name="tracker_track_map_range_summary">How much history the Track Map view displays by default.</string>
 
-    <string name="tracker_outbox_title">Custom URL outbox</string>
-    <string name="tracker_outbox_enabled_title">Use durable outbox queue</string>
-    <string name="tracker_outbox_enabled_summary">Queue Custom URL requests in a local SQLite outbox with its own retry policy, instead of the built-in 3-attempt limit.</string>
-    <string name="tracker_outbox_max_attempts_title">Max attempts per point</string>
-    <string name="tracker_outbox_max_attempts_summary">After this many failures a request is marked Failed and waits for manual retry.</string>
-    <string name="tracker_outbox_max_rows_title">Outbox capacity</string>
-    <string name="tracker_outbox_max_rows_summary">Maximum number of queued requests. The oldest pending rows are dropped when exceeded.</string>
-    <string name="tracker_outbox_keep_failed_days_title">Keep failed requests</string>
-    <string name="tracker_outbox_keep_failed_days_summary">Days to keep Failed rows before automatic cleanup.</string>
-    <string name="tracker_outbox_queue_title">View outbox queue</string>
-    <string name="tracker_outbox_queue_summary">See pending, in-flight, and failed Custom URL requests; retry or clear them.</string>
-
-    <string name="tracker_outbox_queue_activity_title">Outbox queue</string>
-    <string name="tracker_outbox_summary_format">Total: %1$d   Pending: %2$d   Failed: %3$d</string>
-    <string name="tracker_outbox_retry_all_failed">Retry all failed</string>
-    <string name="tracker_outbox_clear_all">Clear all</string>
-    <string name="tracker_outbox_requeued_format">Requeued %1$d failed requests</string>
-    <string name="tracker_outbox_cleared_format">Cleared %1$d requests</string>
 
     <string name="tracker_offline_map_title">Offline map</string>
     <string name="tracker_offline_map_cache_size_title">Cached map data</string>

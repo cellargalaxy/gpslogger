@@ -2,13 +2,11 @@
  * Travel/hiking 改造：轨迹与地图设置入口的 PreferenceFragment。
  * - 本地轨迹缓存：开关 + 保留时间 + 手动清空（二次确认）
  * - 轨迹地图：切段粒度 + 默认时间范围
- * - Custom URL Outbox：开关 + 重试上限 + 容量 + 失败保留天数 + 队列入口
  * - 离线地图：缓存大小展示 + 清空全部缓存（二次确认）+ 样式 URL
  */
 package com.mendhak.gpslogger.tracker.ui;
 
 import android.content.Context;
-import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -57,11 +55,6 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
             return true;
         });
 
-        Preference openOutbox = findPreference("tracker_open_outbox_queue");
-        if (openOutbox != null) openOutbox.setOnPreferenceClickListener(p -> {
-            startActivity(new Intent(getContext(), OutboxQueueActivity.class));
-            return true;
-        });
 
         offlineMapCacheSize = findPreference("tracker_offline_map_cache_size");
         Preference clearOfflineMap = findPreference("tracker_clear_offline_map_cache");

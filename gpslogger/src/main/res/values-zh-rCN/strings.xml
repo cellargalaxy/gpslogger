@@ -398,7 +398,7 @@
     <string name="view_track_map">轨迹地图</string>
 
     <string name="tracker_settings_title">轨迹与地图</string>
-    <string name="tracker_settings_summary">本地轨迹缓存、轨迹地图、离线地图、Custom URL 队列</string>
+    <string name="tracker_settings_summary">本地轨迹缓存、轨迹地图、离线地图</string>
 
     <string name="tracker_local_cache_title">本地轨迹缓存</string>
     <string name="tracker_local_cache_enabled_title">启用本地轨迹缓存</string>
@@ -417,24 +417,6 @@
     <string name="tracker_track_map_range_title">默认显示时间范围</string>
     <string name="tracker_track_map_range_summary">「轨迹地图」打开时默认显示的时间窗。</string>
 
-    <string name="tracker_outbox_title">Custom URL 待发送队列</string>
-    <string name="tracker_outbox_enabled_title">启用持久化 Outbox 队列</string>
-    <string name="tracker_outbox_enabled_summary">用本机 SQLite 队列管理 Custom URL 请求，独立重试策略，不再受默认 3 次重试上限限制。</string>
-    <string name="tracker_outbox_max_attempts_title">单点最大重试次数</string>
-    <string name="tracker_outbox_max_attempts_summary">达到上限后该请求被标记为「失败」，等待手动重试。</string>
-    <string name="tracker_outbox_max_rows_title">队列容量上限</string>
-    <string name="tracker_outbox_max_rows_summary">最多保留的请求数。超出时从最旧的待发送请求开始裁剪。</string>
-    <string name="tracker_outbox_keep_failed_days_title">失败记录保留天数</string>
-    <string name="tracker_outbox_keep_failed_days_summary">超过该时间的失败记录会被自动清理。</string>
-    <string name="tracker_outbox_queue_title">查看待发送队列</string>
-    <string name="tracker_outbox_queue_summary">查看待发送、发送中、失败的 Custom URL 请求；手动重试或清空。</string>
-
-    <string name="tracker_outbox_queue_activity_title">待发送队列</string>
-    <string name="tracker_outbox_summary_format">总数：%1$d   待发送：%2$d   失败：%3$d</string>
-    <string name="tracker_outbox_retry_all_failed">重试所有失败</string>
-    <string name="tracker_outbox_clear_all">清空所有</string>
-    <string name="tracker_outbox_requeued_format">已将 %1$d 条失败请求重新入队</string>
-    <string name="tracker_outbox_cleared_format">已清空 %1$d 条请求</string>
 
     <string name="tracker_offline_map_title">离线地图</string>
     <string name="tracker_offline_map_cache_size_title">已缓存地图文件大小</string>

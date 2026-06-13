@@ -21,7 +21,6 @@ public class TrackerDbHelper extends SQLiteOpenHelper {
     private static final int DB_VERSION = 1;
 
     static final String TABLE_TRACK_POINTS = "local_track_points";
-    static final String TABLE_CUSTOMURL_OUTBOX = "customurl_outbox";
 
     private static volatile TrackerDbHelper INSTANCE;
 
@@ -66,26 +65,6 @@ public class TrackerDbHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX idx_local_track_points_recorded_at " +
                 "ON " + TABLE_TRACK_POINTS + " (recorded_at)");
 
-        db.execSQL("CREATE TABLE " + TABLE_CUSTOMURL_OUTBOX + " (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                "recorded_at INTEGER NOT NULL, " +
-                "created_at INTEGER NOT NULL, " +
-                "url TEXT NOT NULL, " +
-                "method TEXT NOT NULL, " +
-                "headers TEXT NOT NULL, " +
-                "body TEXT NOT NULL, " +
-                "basic_auth_username TEXT, " +
-                "basic_auth_password TEXT, " +
-                "status TEXT NOT NULL, " +
-                "attempt_count INTEGER NOT NULL DEFAULT 0, " +
-                "last_error TEXT, " +
-                "last_attempt_at INTEGER, " +
-                "next_attempt_at INTEGER NOT NULL DEFAULT 0" +
-                ")");
-        db.execSQL("CREATE INDEX idx_customurl_outbox_status_next " +
-                "ON " + TABLE_CUSTOMURL_OUTBOX + " (status, next_attempt_at)");
-        db.execSQL("CREATE INDEX idx_customurl_outbox_recorded_at " +
-                "ON " + TABLE_CUSTOMURL_OUTBOX + " (recorded_at)");
     }
 
     @Override

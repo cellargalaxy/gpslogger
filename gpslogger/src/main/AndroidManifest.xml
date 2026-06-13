@@ -104,18 +104,6 @@
 
         </activity>
 
-        <!-- Travel/hiking 改造：新增的管理 Activities -->
-        <activity
-            android:name=".tracker.ui.OutboxQueueActivity"
-            android:label="@string/tracker_outbox_queue_activity_title"
-            android:parentActivityName=".GpsMainActivity"
-            android:exported="false">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.mendhak.gpslogger.GpsMainActivity" />
-        </activity>
-
-
         <activity
             android:name="com.dropbox.core.android.AuthActivity"
             android:configChanges="orientation|keyboard"
