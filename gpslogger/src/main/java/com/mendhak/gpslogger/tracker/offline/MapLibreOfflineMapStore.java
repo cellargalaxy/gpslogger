@@ -28,11 +28,10 @@ import org.maplibre.android.offline.OfflineRegion;
 import org.maplibre.android.offline.OfflineRegionError;
 import org.maplibre.android.offline.OfflineRegionStatus;
 import org.maplibre.android.offline.OfflineTilePyramidRegionDefinition;
+import org.maplibre.android.storage.FileSource;
 import org.slf4j.Logger;
 
 import java.io.File;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -47,6 +46,7 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
 
     private static final Logger LOG = Logs.of(MapLibreOfflineMapStore.class);
     private static final String META_NAME_KEY = "name";
+    private static final long FILE_SOURCE_OPERATION_TIMEOUT_SECONDS = 30L;
     private static final String[] MAP_CACHE_NAME_HINTS = new String[]{"maplibre", "mapbox", "mbgl"};
 
     private final Context context;
@@ -195,6 +195,13 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
 
     @Override
     public void deleteAll() {
+        deleteAllOfflineRegions();
+        clearAmbientCache();
+        resetDatabase();
+        packDatabase();
+    }
+
+    private void deleteAllOfflineRegions() {
         final List<OfflineRegion> regions = new ArrayList<>();
         final CountDownLatch listLatch = new CountDownLatch(1);
         try {
@@ -231,31 +238,40 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
         } catch (Throwable t) {
             LOG.warn("deleteAll offline regions failed", t);
         }
-        clearAmbientCache();
     }
 
     @Override
     public long totalBytes() {
         Set<String> seen = new HashSet<>();
         long total = 0L;
-        total += sizeOfMatchingFiles(context.getCacheDir(), seen);
-        total += sizeOfMatchingFiles(context.getFilesDir(), seen);
-        try { total += sizeOfMatchingFiles(context.getNoBackupFilesDir(), seen); } catch (Throwable ignore) {}
-        try {
-            File dbDir = context.getDatabasePath("gpslogger-map-placeholder.db").getParentFile();
-            total += sizeOfMatchingFiles(dbDir, seen);
-        } catch (Throwable ignore) {}
+        for (File root : mapCacheRoots()) total += sizeOfMatchingFiles(root, seen);
         return total;
     }
 
     /** 打开轨迹地图的「缓存视野」时，尽量放宽 MapLibre ambient cache。失败只记日志，不影响看图。 */
     public void enableAmbientCacheRetention() {
-        invokeFileSourceMethod("setMaximumAmbientCacheSize", Long.MAX_VALUE, false);
+        runFileSourceOperation("setMaximumAmbientCacheSize",
+                (manager, callback) -> manager.setMaximumAmbientCacheSize(Long.MAX_VALUE, callback),
+                false);
     }
 
     /** 清掉用户浏览时自然产生的瓦片缓存；离线 region 由 deleteAll 负责删除。 */
     public void clearAmbientCache() {
-        invokeFileSourceMethod("clearAmbientCache", null, true);
+        runFileSourceOperation("clearAmbientCache",
+                (manager, callback) -> manager.clearAmbientCache(callback),
+                true);
+    }
+
+    private void resetDatabase() {
+        runFileSourceOperation("resetDatabase",
+                (manager, callback) -> manager.resetDatabase(callback),
+                true);
+    }
+
+    private void packDatabase() {
+        runFileSourceOperation("packDatabase",
+                (manager, callback) -> manager.packDatabase(callback),
+                true);
     }
 
     interface RegionAction { void run(OfflineRegion region); }
@@ -284,39 +300,43 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
         }
     }
 
-    private void invokeFileSourceMethod(String methodName, Long sizeBytes, boolean waitForCallback) {
+    private void runFileSourceOperation(String operationName, FileSourceOperation operation, boolean waitForCallback) {
         try {
-            Class<?> callbackClass = Class.forName("org.maplibre.android.offline.OfflineManager$FileSourceCallback");
             final CountDownLatch latch = new CountDownLatch(1);
-            Object callback = Proxy.newProxyInstance(
-                    callbackClass.getClassLoader(),
-                    new Class[]{callbackClass},
-                    (proxy, method, args) -> {
-                        String name = method.getName();
-                        if ("onError".equals(name) && args != null && args.length > 0) {
-                            LOG.warn("{} failed: {}", methodName, String.valueOf(args[0]));
-                            latch.countDown();
-                        } else if ("onSuccess".equals(name)) {
-                            latch.countDown();
-                        }
-                        return null;
-                    });
+            operation.run(OfflineManager.getInstance(context), new OfflineManager.FileSourceCallback() {
+                @Override
+                public void onSuccess() {
+                    latch.countDown();
+                }
 
-            OfflineManager manager = OfflineManager.getInstance(context);
-            Method method;
-            if (sizeBytes == null) {
-                method = manager.getClass().getMethod(methodName, callbackClass);
-                method.invoke(manager, callback);
-            } else {
-                method = manager.getClass().getMethod(methodName, long.class, callbackClass);
-                method.invoke(manager, sizeBytes, callback);
-            }
-            if (waitForCallback) latch.await(10, TimeUnit.SECONDS);
+                @Override
+                public void onError(String message) {
+                    LOG.warn("{} failed: {}", operationName, message);
+                    latch.countDown();
+                }
+            });
+            if (waitForCallback) latch.await(FILE_SOURCE_OPERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (Throwable t) {
-            LOG.warn("MapLibre file source method {} unavailable", methodName, t);
+            LOG.warn("MapLibre file source operation {} failed", operationName, t);
         }
+    }
+
+    private interface FileSourceOperation {
+        void run(OfflineManager manager, OfflineManager.FileSourceCallback callback);
+    }
+
+    private List<File> mapCacheRoots() {
+        List<File> roots = new ArrayList<>();
+        roots.add(context.getCacheDir());
+        roots.add(context.getFilesDir());
+        try { roots.add(new File(FileSource.getInternalCachePath(context))); } catch (Throwable ignore) {}
+        try { roots.add(new File(FileSource.getResourcesCachePath(context))); } catch (Throwable ignore) {}
+        try { roots.add(context.getNoBackupFilesDir()); } catch (Throwable ignore) {}
+        try { roots.add(context.getExternalFilesDir(null)); } catch (Throwable ignore) {}
+        try { roots.add(context.getDatabasePath("gpslogger-map-placeholder.db").getParentFile()); } catch (Throwable ignore) {}
+        return roots;
     }
 
     private long sizeOfMatchingFiles(File file, Set<String> seen) {
