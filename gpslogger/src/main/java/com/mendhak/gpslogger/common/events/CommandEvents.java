@@ -74,6 +74,12 @@ public class CommandEvents {
     }
 
     /**
+     * Requests the next point while keeping the current logging session running.
+     */
+    public static class GetNextPoint {
+    }
+
+    /**
      * Used to indicate that the file write failed.
      * The intention is to then notify the user of the failure since it represents data loss.
      * Pass stopLogging, if true, ask the logging to stop. Use this for NMEA which is very high frequency.

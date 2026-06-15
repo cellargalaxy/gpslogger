@@ -1175,8 +1175,9 @@ public class GpsMainActivity extends AppCompatActivity
         MenuItem mnuAutoSendNow = toolbar.getMenu().findItem(R.id.mnuAutoSendNow);
 
         if (mnuOnePoint != null) {
-            mnuOnePoint.setEnabled(!session.isStarted());
-            mnuOnePoint.setIcon((session.isStarted() ? R.drawable.singlepoint_disabled : R.drawable.singlepoint));
+            mnuOnePoint.setEnabled(true);
+            mnuOnePoint.setIcon(R.drawable.singlepoint);
+            mnuOnePoint.setTitle(session.isStarted() ? R.string.menu_update_location_now : R.string.menu_onepoint);
         }
 
         if (mnuAutoSendNow != null) {
@@ -1270,7 +1271,11 @@ public class GpsMainActivity extends AppCompatActivity
     }
 
     private void logSinglePoint() {
-        EventBus.getDefault().post(new CommandEvents.LogOnce());
+        if (session.isStarted()) {
+            EventBus.getDefault().post(new CommandEvents.GetNextPoint());
+        } else {
+            EventBus.getDefault().post(new CommandEvents.LogOnce());
+        }
         enableDisableMenuItems();
     }
 

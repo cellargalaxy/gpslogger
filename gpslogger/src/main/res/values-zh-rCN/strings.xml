@@ -241,6 +241,7 @@
     <string name="new_file_prefix_serial_summary">这是在您的手机状态中找到的序列号</string>
     <string name="txt_travel_duration">持续时间︰</string>
     <string name="menu_onepoint">记录一个点</string>
+    <string name="menu_update_location_now">立即更新定位</string>
     <string name="view_simple">简单查看</string>
     <string name="view_detailed">详细查看</string>
     <string name="view_big">大视图</string>

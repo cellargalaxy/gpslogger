@@ -66,6 +66,14 @@ public class Session {
         set("isSinglePointMode", String.valueOf(singlePointMode));
     }
 
+    public boolean isNextPointForced() {
+        return Boolean.valueOf(get("isNextPointForced", "false"));
+    }
+
+    public void setNextPointForced(boolean nextPointForced) {
+        set("isNextPointForced", String.valueOf(nextPointForced));
+    }
+
     /**
      * @return whether GPS (tower) is enabled
      */

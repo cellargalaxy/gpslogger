@@ -545,6 +545,7 @@ public class GpsLoggingService extends Service  {
         cancelAlarm();
         session.setCurrentLocationInfo(null);
         session.setSinglePointMode(false);
+        session.setNextPointForced(false);
         stopForeground(true);
         stopSelf();
 
@@ -806,7 +807,7 @@ public class GpsLoggingService extends Service  {
         if(!preferenceHelper.shouldLogOnlyIfSignificantMotion()){
             return false;
         }
-        return !session.hasDescription() && !session.isSinglePointMode() &&
+        return !session.hasDescription() && !session.isSinglePointMode() && !session.isNextPointForced() &&
                 (session.getUserStillSinceTimeStamp() > 0 && (System.currentTimeMillis() - session.getUserStillSinceTimeStamp()) > (preferenceHelper.getMinimumLoggingInterval() * 1000));
     }
 
@@ -956,7 +957,7 @@ public class GpsLoggingService extends Service  {
         boolean isPassiveLocation = loc.getExtras().getBoolean(BundleConstants.PASSIVE);
         long currentTimeStamp = System.currentTimeMillis();
 
-        LOG.debug("Has description? " + session.hasDescription() + ", Single point? " + session.isSinglePointMode() + ", Last timestamp: " + session.getLatestTimeStamp() + ", Current timestamp: " + currentTimeStamp);
+        LOG.debug("Has description? " + session.hasDescription() + ", Single point? " + session.isSinglePointMode() + ", Forced next point? " + session.isNextPointForced() + ", Last timestamp: " + session.getLatestTimeStamp() + ", Current timestamp: " + currentTimeStamp);
 
         // Sometimes we are given a cached location whose time is in the past and already logged.
         if (session.getPreviousLocationInfo() != null && loc.getTime() <= session.getPreviousLocationInfo().getTime()){
@@ -968,7 +969,7 @@ public class GpsLoggingService extends Service  {
         // However, if user has set an annotation, just log the point, disregard time and distance filters
         // However, if it's a passive location, disregard the time filter
         if (!isPassiveLocation && !session.hasDescription()
-                && !session.isSinglePointMode()
+                && !session.isSinglePointMode() && !session.isNextPointForced()
                 && (currentTimeStamp - session.getLatestTimeStamp()) < (preferenceHelper.getMinimumLoggingInterval() * 1000)) {
             LOG.debug("Received location, but minimum logging interval has not passed. Ignoring.");
             return;
@@ -1050,9 +1051,9 @@ public class GpsLoggingService extends Service  {
             }
             //If the user wants the best possible accuracy, store the point, only if it's the best so far.
             // Then retry until the time limit is reached.
-            // Exception - if it's a passive location, or it's an annotation, or single point mode.
+            // Exception - if it's a passive location, or it's an annotation, single point, or a forced point.
             // I don't think we need to pick the best point in the case of passive locations (not sure).
-            else if(preferenceHelper.shouldGetBestPossibleAccuracy() && !isPassiveLocation && !session.hasDescription() && !session.isSinglePointMode()) {
+            else if(preferenceHelper.shouldGetBestPossibleAccuracy() && !isPassiveLocation && !session.hasDescription() && !session.isSinglePointMode() && !session.isNextPointForced()) {
 
                 if(session.getFirstRetryTimeStamp() == 0){
                     //It's the first loop so reset timestamp and temporary location
@@ -1087,7 +1088,7 @@ public class GpsLoggingService extends Service  {
         //Don't do anything until the user-defined distance has been traversed
         // However, if user has set an annotation, just log the point, disregard time and distance filters
         // However, if it's a passive location, ignore distance filter.
-        if (!isPassiveLocation && !session.hasDescription() && !session.isSinglePointMode() && preferenceHelper.getMinimumDistanceInterval() > 0 && session.hasValidLocation()) {
+        if (!isPassiveLocation && !session.hasDescription() && !session.isSinglePointMode() && !session.isNextPointForced() && preferenceHelper.getMinimumDistanceInterval() > 0 && session.hasValidLocation()) {
 
             double distanceTraveled = Maths.calculateDistance(loc.getLatitude(), loc.getLongitude(),
                     session.getCurrentLatitude(), session.getCurrentLongitude());
@@ -1120,6 +1121,10 @@ public class GpsLoggingService extends Service  {
         setupSignificantMotionSensor();
 
         EventBus.getDefault().post(new ServiceEvents.LocationUpdate(loc));
+
+        if (session.isNextPointForced()) {
+            session.setNextPointForced(false);
+        }
 
         if (session.isSinglePointMode()) {
             LOG.debug("Single point mode - stopping now");
@@ -1358,6 +1363,14 @@ public class GpsLoggingService extends Service  {
     @EventBusHook
     public void onEvent(CommandEvents.LogOnce logOnce){
         logOnce();
+    }
+
+    @EventBusHook
+    public void onEvent(CommandEvents.GetNextPoint getNextPoint){
+        if (session.isStarted()) {
+            session.setNextPointForced(true);
+            startGpsManager();
+        }
     }
 
 
