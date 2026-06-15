@@ -233,13 +233,11 @@ public class TrackMapViewFragment extends GenericViewFragment {
         basemapAvailable = true;
         String styleUrl = TrackerPreferenceHelper.getInstance().getOfflineMapStyleUrl();
         try {
-            // 内置 OSM 走 asset:// 协议加载预打包的 style.json；
+            // 内置图层走 asset:// 协议加载预打包 style.json；自定义 URL 保持原有直连行为。
             // 实测比 Style.Builder.fromJson 更稳定，可避免 MapLibre v11 在内联 JSON 上偶发的渲染卡顿。
-            Style.Builder builder = OpenStreetMapStyle.isBuiltInStyle(styleUrl)
-                    ? new Style.Builder().fromUri(OpenStreetMapStyle.BUILTIN_ASSET_URI)
-                    : new Style.Builder().fromUri(styleUrl);
-            LOG.info("Track map applying style: {}",
-                    OpenStreetMapStyle.isBuiltInStyle(styleUrl) ? OpenStreetMapStyle.BUILTIN_ASSET_URI : styleUrl);
+            String resolvedStyleUri = OpenStreetMapStyle.resolveStyleUri(styleUrl);
+            Style.Builder builder = new Style.Builder().fromUri(resolvedStyleUri);
+            LOG.info("Track map applying style: {}", resolvedStyleUri);
             mapLibreMap.setStyle(builder, style -> {
                 LOG.info("Track map setStyle callback fired");
                 basemapAvailable = true;
@@ -526,7 +524,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
         // MapLibre 的 ambient cache 会保存用户实际浏览过的瓦片；开关打开时同步应用用户配置的缓存上限。
         store.enableAmbientCacheRetention();
 
-        if (TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicOpenStreetMapTiles()) {
+        if (TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicTileLayer()) {
             if (!publicOsmCacheHintShown) {
                 showStatus(R.string.tracker_track_map_cache_visible_tiles_ambient_only, true);
                 publicOsmCacheHintShown = true;

@@ -42,6 +42,7 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
         bindSummary(TrackerPreferenceNames.TRACK_MAP_SEGMENT_MINUTES);
         bindSummary(TrackerPreferenceNames.TRACK_MAP_TIME_RANGE_HOURS);
         bindSummary(TrackerPreferenceNames.OFFLINE_MAP_MAX_CACHE_MB);
+        bindSummary(TrackerPreferenceNames.OFFLINE_MAP_STYLE_URL);
 
         Preference clear = findPreference("tracker_clear_local_track_cache");
         if (clear != null) clear.setOnPreferenceClickListener(p -> {
@@ -92,6 +93,11 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
             trimOfflineMapCacheAsync(maxCacheBytesFromValue(v));
             return true;
         });
+        Preference offlineMapStyle = findPreference(TrackerPreferenceNames.OFFLINE_MAP_STYLE_URL);
+        if (offlineMapStyle != null) offlineMapStyle.setOnPreferenceChangeListener((p, v) -> {
+            bindListSummary((ListPreference) p, String.valueOf(v));
+            return true;
+        });
 
         // 显示一下 TrackerPreferenceHelper 已经规整后的值，确认配置生效
         TrackerPreferenceHelper.getInstance();
@@ -127,6 +133,7 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
                 return;
             }
         }
+        if (value != null && !value.trim().isEmpty()) lp.setSummary(value.trim());
     }
 
     private void confirmThen(int titleRes, int messageRes, Runnable confirmedAction) {

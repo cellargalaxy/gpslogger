@@ -122,15 +122,16 @@ public class MapLibreOfflineMapStore implements OfflineMapStore {
     public long createRegion(String name, double minLat, double minLon, double maxLat, double maxLon,
                              int minZoom, int maxZoom, final ProgressCallback callback) throws Exception {
         String styleUrl = TrackerPreferenceHelper.getInstance().getOfflineMapStyleUrl();
-        if (OpenStreetMapStyle.usesPublicOpenStreetMapTiles(styleUrl)) {
-            throw new IllegalStateException("OpenStreetMap public tile style cannot be downloaded for offline use.");
+        if (OpenStreetMapStyle.usesPublicOrManagedTiles(styleUrl)) {
+            throw new IllegalStateException("Public or managed tile style cannot be downloaded for offline use.");
         }
         LatLngBounds bounds = new LatLngBounds.Builder()
                 .include(new LatLng(minLat, minLon))
                 .include(new LatLng(maxLat, maxLon))
                 .build();
         OfflineTilePyramidRegionDefinition definition = new OfflineTilePyramidRegionDefinition(
-                styleUrl, bounds, minZoom, maxZoom, context.getResources().getDisplayMetrics().density);
+                OpenStreetMapStyle.resolveStyleUri(styleUrl), bounds, minZoom, maxZoom,
+                context.getResources().getDisplayMetrics().density);
 
         JSONObject metaJson = new JSONObject();
         try { metaJson.put(META_NAME_KEY, name); } catch (JSONException e) { /* 忽略 */ }

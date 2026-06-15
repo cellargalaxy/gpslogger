@@ -21,6 +21,8 @@ public final class TrackerPreferenceNames {
     public static final String OFFLINE_MAP_MAX_CACHE_MB = "offline_map_max_cache_mb";
 
     public static final String BUILTIN_OPENSTREETMAP_STYLE_URL = "builtin:openstreetmap";
+    public static final String BUILTIN_CYCLOSM_STYLE_URL = "builtin:cyclosm";
+    public static final String BUILTIN_ESRI_WORLD_IMAGERY_STYLE_URL = "builtin:esriWorldImagery";
     public static final String LEGACY_MAPLIBRE_DEMO_STYLE_URL = "https://demotiles.maplibre.org/style.json";
 
     // 默认值

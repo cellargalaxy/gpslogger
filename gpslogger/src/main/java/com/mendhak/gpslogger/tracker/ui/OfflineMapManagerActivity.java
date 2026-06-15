@@ -210,8 +210,10 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
             previewMapView.onCreate(savedInstanceState);
             previewMapView.getMapAsync(map -> {
                 previewMapLibreMap = map;
-                // 与「轨迹地图」一致，走 asset:// 协议加载预打包样式，避免 fromJson 在某些机型上的渲染卡顿。
-                Style.Builder builder = new Style.Builder().fromUri(OpenStreetMapStyle.BUILTIN_ASSET_URI);
+                // 与「轨迹地图」一致，走解析后的样式 URI，内置图层使用预打包 asset。
+                String styleUri = OpenStreetMapStyle.resolveStyleUri(
+                        TrackerPreferenceHelper.getInstance().getOfflineMapStyleUrl());
+                Style.Builder builder = new Style.Builder().fromUri(styleUri);
                 map.setStyle(builder, style -> {
                     previewReady = true;
                     renderDownloadGuidance();
@@ -235,7 +237,7 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
     }
 
     private void onDownloadCurrentArea(View v) {
-        if (TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicOpenStreetMapTiles()) {
+        if (TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicTileLayer()) {
             Toast.makeText(this, R.string.tracker_offline_map_public_osm_blocked, Toast.LENGTH_LONG).show();
             renderDownloadGuidance();
             return;
@@ -308,7 +310,7 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
 
     private void renderDownloadGuidance() {
         if (policyHint != null) {
-            int text = TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicOpenStreetMapTiles()
+            int text = TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicTileLayer()
                     ? R.string.tracker_offline_map_osm_online_only
                     : R.string.tracker_offline_map_provider_hint;
             policyHint.setText(text);
@@ -517,7 +519,7 @@ public class OfflineMapManagerActivity extends AppCompatActivity {
     }
 
     private void setControlsEnabled(boolean enabled) {
-        boolean canDownload = enabled && !TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicOpenStreetMapTiles();
+        boolean canDownload = enabled && !TrackerPreferenceHelper.getInstance().isOfflineMapUsingPublicTileLayer();
         downloadButton.setEnabled(canDownload);
         deleteAllButton.setEnabled(enabled);
         listView.setEnabled(enabled);

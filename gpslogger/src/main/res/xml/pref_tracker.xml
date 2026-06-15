@@ -83,11 +83,14 @@
             android:summary="@string/tracker_offline_map_clear_cache_summary"
             app:iconSpaceReserved="false" />
 
-        <EditTextPreference
+        <ListPreference
             android:defaultValue="builtin:openstreetmap"
             android:key="offline_map_style_url"
+            android:entries="@array/tracker_offline_map_layer_entries"
+            android:entryValues="@array/tracker_offline_map_layer_values"
             android:title="@string/tracker_offline_map_style_url_title"
             android:summary="@string/tracker_offline_map_style_url_summary"
+            android:dialogTitle="@string/tracker_offline_map_style_url_title"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 

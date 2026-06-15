@@ -539,12 +539,12 @@
     <string name="tracker_offline_map_clear_confirm_title">Clear all map cache?</string>
     <string name="tracker_offline_map_clear_confirm_message">This deletes all downloaded map regions and cached map tiles on this device.</string>
     <string name="tracker_offline_map_cache_cleared">Map cache cleared</string>
-    <string name="tracker_offline_map_style_url_title">Map style URL</string>
-    <string name="tracker_offline_map_style_url_summary">Use builtin:openstreetmap for the built-in OpenStreetMap online map. Offline downloads require a provider or self-hosted style URL that permits prefetching.</string>
+    <string name="tracker_offline_map_style_url_title">Map layer</string>
+    <string name="tracker_offline_map_style_url_summary">Choose the built-in raster layer used by Track Map. Browsed tiles are kept in the local map cache.</string>
     <string name="tracker_offline_map_manage_title">Manage offline map regions</string>
     <string name="tracker_offline_map_manage_summary">List, download, and delete offline map regions.</string>
     <string name="tracker_offline_map_activity_title">Offline map regions</string>
-    <string name="tracker_offline_map_no_sdk">Offline map engine not configured. Set up a MapLibre style URL or install the engine first.</string>
+    <string name="tracker_offline_map_no_sdk">Offline map engine not configured. Set up a map layer or install the engine first.</string>
     <string name="tracker_offline_map_download_current_view">Download this region</string>
     <string name="tracker_offline_map_delete_all">Delete all offline data</string>
     <string name="tracker_offline_map_radius_title">Radius (km)</string>
@@ -558,9 +558,9 @@
     <string name="tracker_offline_map_creating">Creating offline map region...</string>
     <string name="tracker_offline_map_deleting">Deleting offline map data...</string>
     <string name="tracker_offline_map_no_location">No current location available.</string>
-    <string name="tracker_offline_map_osm_online_only">The default map uses OpenStreetMap standard tiles for online viewing. OpenStreetMap public tiles cannot be downloaded for offline regions; use a provider or self-hosted style URL that explicitly permits offline use.</string>
+    <string name="tracker_offline_map_osm_online_only">Built-in public or managed map layers are for online viewing. They keep browsed tiles in the local cache, but cannot be downloaded as offline regions.</string>
     <string name="tracker_offline_map_provider_hint">Offline downloads use the configured style URL. Confirm that the tile provider allows prefetching and offline storage before downloading.</string>
-    <string name="tracker_offline_map_public_osm_blocked">OpenStreetMap public tiles cannot be downloaded for offline use. Use a provider or self-hosted style URL that permits offline downloads.</string>
+    <string name="tracker_offline_map_public_osm_blocked">This public or managed map layer cannot be downloaded as an offline region. Use a provider or self-hosted style URL that permits offline downloads.</string>
     <string name="tracker_offline_map_plan_no_location">Download plan unavailable: start logging or open Track Map once so GPSLogger has a recent location.</string>
     <string name="tracker_offline_map_plan_format" formatted="false">Planned area: %.4f,%.4f to %.4f,%.4f. Zoom %d-%d will be stored; zooming beyond %d reuses the highest downloaded tiles and will not fetch higher detail automatically.</string>
     <string name="tracker_offline_map_regions_format">Regions: %1$d  (long-press to delete one)</string>
@@ -578,13 +578,13 @@
     <string name="tracker_track_map_cache_visible_tiles">Cache view</string>
     <string name="tracker_track_map_cache_visible_tiles_enabled">Visible map tiles will be kept locally up to the configured cache limit.</string>
     <string name="tracker_track_map_cache_visible_tiles_disabled">Visible map tile caching is off.</string>
-    <string name="tracker_track_map_cache_visible_tiles_ambient_only">The default OpenStreetMap view keeps browsed tiles in the local map cache.</string>
+    <string name="tracker_track_map_cache_visible_tiles_ambient_only">This map layer keeps browsed tiles in the local map cache.</string>
     <string name="tracker_track_map_cache_visible_tiles_saving">Saving the visible map area...</string>
     <string name="tracker_track_map_cache_visible_tiles_saved">Visible map area queued for offline use.</string>
     <string name="tracker_track_map_cache_visible_tiles_failed">Could not cache the visible map area. Check the map style provider.</string>
     <string name="tracker_track_map_status_loading_style">Loading map style...</string>
     <string name="tracker_track_map_status_loading_tiles">Style loaded, fetching tiles...</string>
-    <string name="tracker_track_map_status_tiles_slow">Tiles are slow to load. Check your network, or change the map style URL in settings.</string>
+    <string name="tracker_track_map_status_tiles_slow">Tiles are slow to load. Check your network, or change the map layer in settings.</string>
 
     <string-array name="tracker_segment_entries">
         <item>5 minutes</item>
@@ -599,6 +599,17 @@
         <item>15</item>
         <item>30</item>
         <item>60</item>
+    </string-array>
+
+    <string-array name="tracker_offline_map_layer_entries">
+        <item>OpenStreetMap</item>
+        <item>CyclOSM</item>
+        <item>Esri World Imagery</item>
+    </string-array>
+    <string-array name="tracker_offline_map_layer_values">
+        <item>builtin:openstreetmap</item>
+        <item>builtin:cyclosm</item>
+        <item>builtin:esriWorldImagery</item>
     </string-array>
 
     <string-array name="tracker_offline_map_max_cache_entries">

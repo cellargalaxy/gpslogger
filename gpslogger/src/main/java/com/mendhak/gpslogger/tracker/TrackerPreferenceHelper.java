@@ -93,7 +93,11 @@ public final class TrackerPreferenceHelper {
         if (s == null || s.trim().isEmpty() || OpenStreetMapStyle.isLegacyDemoStyle(s)) {
             return TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_STYLE_URL;
         }
-        return s.trim();
+        s = s.trim();
+        if (s.startsWith("builtin:") && !OpenStreetMapStyle.isBuiltInStyle(s)) {
+            return TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_STYLE_URL;
+        }
+        return s;
     }
 
     public int getOfflineMapMaxCacheMb() {
@@ -107,7 +111,11 @@ public final class TrackerPreferenceHelper {
         return getOfflineMapMaxCacheMb() * 1024L * 1024L;
     }
 
+    public boolean isOfflineMapUsingPublicTileLayer() {
+        return OpenStreetMapStyle.usesPublicOrManagedTiles(getOfflineMapStyleUrl());
+    }
+
     public boolean isOfflineMapUsingPublicOpenStreetMapTiles() {
-        return OpenStreetMapStyle.usesPublicOpenStreetMapTiles(getOfflineMapStyleUrl());
+        return isOfflineMapUsingPublicTileLayer();
     }
 }

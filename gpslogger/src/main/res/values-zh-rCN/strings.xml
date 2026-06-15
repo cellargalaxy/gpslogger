@@ -430,12 +430,12 @@
     <string name="tracker_offline_map_clear_confirm_title">清除全部地图缓存？</string>
     <string name="tracker_offline_map_clear_confirm_message">这会删除本机所有已下载地图区域和已缓存地图瓦片。</string>
     <string name="tracker_offline_map_cache_cleared">地图缓存已清除</string>
-    <string name="tracker_offline_map_style_url_title">地图样式 URL</string>
-    <string name="tracker_offline_map_style_url_summary">使用 builtin:openstreetmap 可启用内置 OpenStreetMap 在线底图。离线下载需要填写明确允许预取/离线使用的服务商或自托管样式 URL。</string>
+    <string name="tracker_offline_map_style_url_title">地图图层</string>
+    <string name="tracker_offline_map_style_url_summary">选择「轨迹地图」使用的内置栅格图层。已浏览瓦片会保留在本地地图缓存中。</string>
     <string name="tracker_offline_map_manage_title">管理离线地图区域</string>
     <string name="tracker_offline_map_manage_summary">查看、下载、删除已缓存的地图区域。</string>
     <string name="tracker_offline_map_activity_title">离线地图区域</string>
-    <string name="tracker_offline_map_no_sdk">未配置离线地图引擎。请先设置 MapLibre 样式 URL 或安装相应引擎。</string>
+    <string name="tracker_offline_map_no_sdk">未配置离线地图引擎。请先设置地图图层或安装相应引擎。</string>
     <string name="tracker_offline_map_download_current_view">下载该范围</string>
     <string name="tracker_offline_map_delete_all">删除全部离线数据</string>
     <string name="tracker_offline_map_radius_title">半径（km）</string>
@@ -449,9 +449,9 @@
     <string name="tracker_offline_map_creating">正在创建离线地图区域...</string>
     <string name="tracker_offline_map_deleting">正在删除离线地图数据...</string>
     <string name="tracker_offline_map_no_location">当前没有可用位置。</string>
-    <string name="tracker_offline_map_osm_online_only">默认底图使用 OpenStreetMap 标准瓦片进行在线浏览。OpenStreetMap 公共瓦片不允许下载离线区域；如需离线下载，请改用明确允许离线使用的服务商或自托管样式 URL。</string>
+    <string name="tracker_offline_map_osm_online_only">内置公共或托管地图图层用于在线浏览。已浏览瓦片会保留在本地缓存中，但不能下载为离线区域。</string>
     <string name="tracker_offline_map_provider_hint">离线下载会使用当前配置的样式 URL。下载前请确认瓦片服务商允许预取和离线保存。</string>
-    <string name="tracker_offline_map_public_osm_blocked">OpenStreetMap 公共瓦片不能下载为离线区域。请使用允许离线下载的服务商或自托管样式 URL。</string>
+    <string name="tracker_offline_map_public_osm_blocked">该公共或托管地图图层不能下载为离线区域。请使用允许离线下载的服务商或自托管样式 URL。</string>
     <string name="tracker_offline_map_plan_no_location">暂无下载范围：请先开始记录或打开一次轨迹地图，让 GPSLogger 获取最近位置。</string>
     <string name="tracker_offline_map_plan_format" formatted="false">计划范围：%.4f,%.4f 到 %.4f,%.4f。将保存缩放 %d-%d；继续放大超过 %d 时只会复用已下载的最高缩放瓦片，不会自动下载更高分辨率。</string>
     <string name="tracker_offline_map_regions_format">区域数：%1$d（长按可删除单个区域）</string>
@@ -469,13 +469,24 @@
     <string name="tracker_track_map_cache_visible_tiles">缓存视野</string>
     <string name="tracker_track_map_cache_visible_tiles_enabled">当前视野的地图瓦片会按配置的缓存上限保留在本地。</string>
     <string name="tracker_track_map_cache_visible_tiles_disabled">已关闭视野地图缓存。</string>
-    <string name="tracker_track_map_cache_visible_tiles_ambient_only">默认 OpenStreetMap 视图会把已浏览瓦片保留在本地地图缓存中。</string>
+    <string name="tracker_track_map_cache_visible_tiles_ambient_only">该地图图层会把已浏览瓦片保留在本地地图缓存中。</string>
     <string name="tracker_track_map_cache_visible_tiles_saving">正在保存当前可见地图区域…</string>
     <string name="tracker_track_map_cache_visible_tiles_saved">当前可见地图区域已加入离线缓存。</string>
     <string name="tracker_track_map_cache_visible_tiles_failed">无法缓存当前可见地图区域，请检查地图样式服务商。</string>
     <string name="tracker_track_map_status_loading_style">正在加载地图样式…</string>
     <string name="tracker_track_map_status_loading_tiles">样式已加载，正在拉取瓦片…</string>
-    <string name="tracker_track_map_status_tiles_slow">瓦片加载缓慢。请检查网络，或在设置中更换地图样式 URL。</string>
+    <string name="tracker_track_map_status_tiles_slow">瓦片加载缓慢。请检查网络，或在设置中更换地图图层。</string>
+
+    <string-array name="tracker_offline_map_layer_entries">
+        <item>OpenStreetMap</item>
+        <item>CyclOSM</item>
+        <item>Esri World Imagery</item>
+    </string-array>
+    <string-array name="tracker_offline_map_layer_values">
+        <item>builtin:openstreetmap</item>
+        <item>builtin:cyclosm</item>
+        <item>builtin:esriWorldImagery</item>
+    </string-array>
 
     <string-array name="tracker_offline_map_max_cache_entries">
         <item>256 MB</item>

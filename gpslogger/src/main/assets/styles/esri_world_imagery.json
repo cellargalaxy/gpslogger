@@ -1,0 +1,27 @@
+{
+  "version": 8,
+  "name": "Esri World Imagery",
+  "sources": {
+    "esri-world-imagery": {
+      "type": "raster",
+      "tiles": ["https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+      "tileSize": 256,
+      "minzoom": 0,
+      "maxzoom": 23,
+      "attribution": "Source: Esri, Vantor, Earthstar Geographics, and the GIS User Community"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": { "background-color": "#E8EAED" }
+    },
+    {
+      "id": "esri-world-imagery",
+      "type": "raster",
+      "source": "esri-world-imagery",
+      "paint": { "raster-opacity": 1.0 }
+    }
+  ]
+}
