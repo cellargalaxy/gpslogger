@@ -466,6 +466,7 @@
     <string name="tracker_track_map_refresh">刷新</string>
     <string name="tracker_track_map_locate">定位到最新点</string>
     <string name="tracker_track_map_fit">适应轨迹边界</string>
+    <string name="tracker_track_map_layer">地图图层</string>
     <string name="tracker_track_map_cache_visible_tiles">缓存视野</string>
     <string name="tracker_track_map_cache_visible_tiles_enabled">当前视野的地图瓦片会按配置的缓存上限保留在本地。</string>
     <string name="tracker_track_map_cache_visible_tiles_disabled">已关闭视野地图缓存。</string>

@@ -25,6 +25,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.mendhak.gpslogger.R;
@@ -112,15 +113,49 @@ public class TrackMapViewFragment extends GenericViewFragment {
         ImageButton refresh = root.findViewById(R.id.track_map_btn_refresh);
         ImageButton locate = root.findViewById(R.id.track_map_btn_locate);
         ImageButton fit = root.findViewById(R.id.track_map_btn_fit);
+        ImageButton layer = root.findViewById(R.id.track_map_btn_layer);
 
         refresh.setOnClickListener(v -> refreshTrack(false));
         locate.setOnClickListener(v -> centerOnLatest());
         fit.setOnClickListener(v -> refreshTrack(true));
+        layer.setOnClickListener(v -> showMapLayerChooser());
         setupVisibleTileCacheSwitch();
 
         initializeMapView(mapContainer, savedInstanceState);
 
         return root;
+    }
+
+    private void showMapLayerChooser() {
+        if (getContext() == null) return;
+        String[] entries = getResources().getStringArray(R.array.tracker_offline_map_layer_entries);
+        String[] values = getResources().getStringArray(R.array.tracker_offline_map_layer_values);
+        if (entries.length == 0 || entries.length != values.length) return;
+
+        String current = TrackerPreferenceHelper.getInstance().getOfflineMapStyleUrl();
+        int checked = 0;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equals(current)) {
+                checked = i;
+                break;
+            }
+        }
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.tracker_track_map_layer)
+                .setSingleChoiceItems(entries, checked, (dialog, which) -> {
+                    if (which < 0 || which >= values.length) return;
+                    String selected = values[which];
+                    if (!selected.equals(TrackerPreferenceHelper.getInstance().getOfflineMapStyleUrl())) {
+                        TrackerPreferenceHelper.getInstance().setOfflineMapStyleUrl(selected);
+                        publicOsmCacheHintShown = false;
+                        lastCachedVisibleRegionKey = "";
+                        showStatus(R.string.tracker_track_map_status_loading_style, true);
+                        loadConfiguredStyle(false);
+                    }
+                    dialog.dismiss();
+                })
+                .show();
     }
 
     private void setupVisibleTileCacheSwitch() {
@@ -209,7 +244,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
             mapView.getMapAsync(map -> {
                 mapLibreMap = map;
                 moveCameraToInitialPosition();
-                loadConfiguredStyle();
+                loadConfiguredStyle(true);
                 mapView.postDelayed(() -> {
                     if (mapLibreMap != null && mapLibreMap.getStyle() == null) {
                         LOG.warn("Track map style load timed out");
@@ -227,7 +262,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
         }
     }
 
-    private void loadConfiguredStyle() {
+    private void loadConfiguredStyle(boolean fitBounds) {
         if (mapLibreMap == null) return;
         fallbackStyleLoaded = false;
         basemapAvailable = true;
@@ -241,7 +276,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
             mapLibreMap.setStyle(builder, style -> {
                 LOG.info("Track map setStyle callback fired");
                 basemapAvailable = true;
-                refreshTrack(true);
+                refreshTrack(fitBounds);
             });
         } catch (Throwable t) {
             LOG.warn("Failed to apply configured map style {}", styleUrl, t);

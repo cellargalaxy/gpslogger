@@ -2,7 +2,7 @@
  * Travel/hiking 改造：轨迹与地图设置入口的 PreferenceFragment。
  * - 本地轨迹缓存：开关 + 保留时间 + 手动清空（二次确认）
  * - 轨迹地图：切段粒度 + 默认时间范围
- * - 离线地图：缓存大小展示 + 最大地图缓存大小 + 清空全部缓存（二次确认）+ 样式 URL
+ * - 离线地图：缓存大小展示 + 最大地图缓存大小 + 清空全部缓存（二次确认）
  */
 package com.mendhak.gpslogger.tracker.ui;
 
@@ -42,7 +42,6 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
         bindSummary(TrackerPreferenceNames.TRACK_MAP_SEGMENT_MINUTES);
         bindSummary(TrackerPreferenceNames.TRACK_MAP_TIME_RANGE_HOURS);
         bindSummary(TrackerPreferenceNames.OFFLINE_MAP_MAX_CACHE_MB);
-        bindSummary(TrackerPreferenceNames.OFFLINE_MAP_STYLE_URL);
 
         Preference clear = findPreference("tracker_clear_local_track_cache");
         if (clear != null) clear.setOnPreferenceClickListener(p -> {
@@ -91,11 +90,6 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
         if (offlineMapMaxCache != null) offlineMapMaxCache.setOnPreferenceChangeListener((p, v) -> {
             bindListSummary((ListPreference) p, String.valueOf(v));
             trimOfflineMapCacheAsync(maxCacheBytesFromValue(v));
-            return true;
-        });
-        Preference offlineMapStyle = findPreference(TrackerPreferenceNames.OFFLINE_MAP_STYLE_URL);
-        if (offlineMapStyle != null) offlineMapStyle.setOnPreferenceChangeListener((p, v) -> {
-            bindListSummary((ListPreference) p, String.valueOf(v));
             return true;
         });
 

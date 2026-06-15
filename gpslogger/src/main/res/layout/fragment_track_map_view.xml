@@ -51,6 +51,17 @@
             android:src="@drawable/ic_track_map_fit_bounds"
             android:tint="?attr/colorControlNormal" />
 
+        <ImageButton
+            android:id="@+id/track_map_btn_layer"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/tracker_track_map_layer"
+            android:padding="12dp"
+            android:scaleType="center"
+            android:src="@drawable/ic_track_map_layers"
+            android:tint="?attr/colorControlNormal" />
+
         <Space
             android:layout_width="0dp"
             android:layout_height="1dp"

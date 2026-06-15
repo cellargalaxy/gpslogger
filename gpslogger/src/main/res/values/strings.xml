@@ -575,6 +575,7 @@
     <string name="tracker_track_map_refresh">Refresh</string>
     <string name="tracker_track_map_locate">Center on latest point</string>
     <string name="tracker_track_map_fit">Fit track bounds</string>
+    <string name="tracker_track_map_layer">Map layer</string>
     <string name="tracker_track_map_cache_visible_tiles">Cache view</string>
     <string name="tracker_track_map_cache_visible_tiles_enabled">Visible map tiles will be kept locally up to the configured cache limit.</string>
     <string name="tracker_track_map_cache_visible_tiles_disabled">Visible map tile caching is off.</string>

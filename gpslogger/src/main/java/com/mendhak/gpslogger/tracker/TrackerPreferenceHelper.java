@@ -100,6 +100,15 @@ public final class TrackerPreferenceHelper {
         return s;
     }
 
+    public void setOfflineMapStyleUrl(String styleUrl) {
+        String s = styleUrl == null ? "" : styleUrl.trim();
+        if (s.isEmpty() || OpenStreetMapStyle.isLegacyDemoStyle(s)
+                || (s.startsWith("builtin:") && !OpenStreetMapStyle.isBuiltInStyle(s))) {
+            s = TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_STYLE_URL;
+        }
+        prefs.edit().putString(TrackerPreferenceNames.OFFLINE_MAP_STYLE_URL, s).apply();
+    }
+
     public int getOfflineMapMaxCacheMb() {
         int mb = getIntOrString(TrackerPreferenceNames.OFFLINE_MAP_MAX_CACHE_MB,
                 TrackerPreferenceNames.DEFAULT_OFFLINE_MAP_MAX_CACHE_MB);
