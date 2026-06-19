@@ -2,12 +2,12 @@
 set -eu
 
 DEFAULT_UPSTREAM_URL="https://github.com/mendhak/gpslogger.git"
+DEFAULT_TARGET_BRANCH="mendhak_master"
 
 UPSTREAM_REMOTE="${UPSTREAM_REMOTE:-upstream}"
 UPSTREAM_URL="${UPSTREAM_URL:-$DEFAULT_UPSTREAM_URL}"
 UPSTREAM_BRANCH="${UPSTREAM_BRANCH:-master}"
-TARGET_BRANCH="${TARGET_BRANCH:-}"
-SYNC_MODE="${SYNC_MODE:-merge}"
+TARGET_BRANCH="${TARGET_BRANCH:-$DEFAULT_TARGET_BRANCH}"
 PUSH_REMOTE="${PUSH_REMOTE:-origin}"
 PUSH="${PUSH:-0}"
 RUN_TESTS="${RUN_TESTS:-0}"
@@ -23,14 +23,14 @@ usage() {
   1. 确认当前仓库没有未提交改动；
   2. 确认或添加 upstream=https://github.com/mendhak/gpslogger.git；
   3. 拉取 upstream/master；
-  4. 将 upstream/master 合入目标分支，目标分支默认是当前分支。
+  4. 确认或创建 mendhak_master；
+  5. 只用 fast-forward 将 mendhak_master 更新到 upstream/master。
 
 选项:
-  --target-branch <branch>     指定要合入官方代码的本地分支，默认当前分支
+  --target-branch <branch>     指定官方同步本地分支，默认 mendhak_master
   --upstream-remote <name>     指定官方远端名，默认 upstream
   --upstream-url <url>         指定官方仓库地址，默认 https://github.com/mendhak/gpslogger.git
   --upstream-branch <branch>   指定官方分支，默认 master
-  --mode <merge|rebase>        同步方式，默认 merge；rebase 会改写本地提交历史
   --push                       成功后推送目标分支到 origin，默认不推送
   --push-remote <name>         --push 使用的推送远端，默认 origin
   --run-tests                  成功合入后执行 ./gradlew test
@@ -39,7 +39,7 @@ usage() {
   -h, --help                   显示帮助
 
 也可以用同名环境变量覆盖默认值，例如:
-  TARGET_BRANCH=my-custom PUSH=1 scripts/merge-official-master.sh
+  TARGET_BRANCH=my-upstream-master PUSH=1 scripts/merge-official-master.sh
 EOF
 }
 
@@ -113,11 +113,6 @@ while [ "$#" -gt 0 ]; do
             UPSTREAM_BRANCH=$2
             shift 2
             ;;
-        --mode)
-            [ "$#" -ge 2 ] || die "$1 需要 merge 或 rebase"
-            SYNC_MODE=$2
-            shift 2
-            ;;
         --push)
             PUSH=1
             shift
@@ -149,14 +144,6 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-case "$SYNC_MODE" in
-    merge|rebase)
-        ;;
-    *)
-        die "--mode 只能是 merge 或 rebase，当前是 $SYNC_MODE"
-        ;;
-esac
-
 validate_bool PUSH "$PUSH"
 validate_bool RUN_TESTS "$RUN_TESTS"
 validate_bool ALLOW_DIRTY "$ALLOW_DIRTY"
@@ -166,11 +153,6 @@ cd "$REPO_ROOT"
 
 GIT_DIR=$(git rev-parse --git-dir)
 CURRENT_BRANCH=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
-
-if [ -z "$TARGET_BRANCH" ]; then
-    [ -n "$CURRENT_BRANCH" ] || die "当前处于 detached HEAD，请用 --target-branch 指定目标分支"
-    TARGET_BRANCH=$CURRENT_BRANCH
-fi
 
 if [ -f "$GIT_DIR/MERGE_HEAD" ]; then
     die "检测到未完成的 merge，请先解决冲突并提交，或执行 git merge --abort"
@@ -189,14 +171,6 @@ if [ "$ALLOW_DIRTY" != "1" ]; then
             die "工作区不干净，请先提交或贮藏改动；确认要继续时可加 --allow-dirty"
         fi
     fi
-fi
-
-if [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
-    info "切换到目标分支 $TARGET_BRANCH"
-    run git checkout "$TARGET_BRANCH"
-elif [ -z "$CURRENT_BRANCH" ]; then
-    info "当前为 detached HEAD，将切换到目标分支 $TARGET_BRANCH"
-    run git checkout "$TARGET_BRANCH"
 fi
 
 if existing_url=$(git remote get-url "$UPSTREAM_REMOTE" 2>/dev/null); then
@@ -221,28 +195,29 @@ if [ "$DRY_RUN" != "1" ]; then
     git rev-parse --verify "$UPSTREAM_REF^{commit}" >/dev/null || die "未找到 $UPSTREAM_REMOTE/$UPSTREAM_BRANCH，请确认远端分支存在"
 fi
 
-if [ "$SYNC_MODE" = "merge" ]; then
-    info "合入 $UPSTREAM_REMOTE/$UPSTREAM_BRANCH 到 $TARGET_BRANCH"
+if git show-ref --verify --quiet "refs/heads/$TARGET_BRANCH"; then
+    if [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
+        info "切换到官方同步分支 $TARGET_BRANCH"
+        run git checkout "$TARGET_BRANCH"
+    elif [ -z "$CURRENT_BRANCH" ]; then
+        info "当前为 detached HEAD，将切换到官方同步分支 $TARGET_BRANCH"
+        run git checkout "$TARGET_BRANCH"
+    fi
+
+    info "只允许 fast-forward 更新 $TARGET_BRANCH 到 $UPSTREAM_REMOTE/$UPSTREAM_BRANCH"
     if [ "$DRY_RUN" = "1" ]; then
-        run git merge --no-edit "$UPSTREAM_REF"
-    elif ! git merge --no-edit "$UPSTREAM_REF"; then
-        printf '%s\n' '合并冲突处理提示：' >&2
-        printf '%s\n' '  1. 处理冲突文件；' >&2
-        printf '%s\n' '  2. git add <已解决文件>；' >&2
-        printf '%s\n' '  3. git merge --continue；' >&2
-        printf '%s\n' '  如需放弃本次合并：git merge --abort' >&2
+        run git merge --ff-only "$UPSTREAM_REF"
+    elif ! git merge --ff-only "$UPSTREAM_REF"; then
+        printf '%s\n' "错误：$TARGET_BRANCH 不能 fast-forward 到 $UPSTREAM_REMOTE/$UPSTREAM_BRANCH。" >&2
+        printf '%s\n' "请确认 $TARGET_BRANCH 没有合入本仓库自定义提交；必要时人工备份后重建该分支。" >&2
         exit 1
     fi
 else
-    info "将 $TARGET_BRANCH rebase 到 $UPSTREAM_REMOTE/$UPSTREAM_BRANCH"
+    info "创建官方同步分支 $TARGET_BRANCH，起点为 $UPSTREAM_REMOTE/$UPSTREAM_BRANCH"
     if [ "$DRY_RUN" = "1" ]; then
-        run git rebase "$UPSTREAM_REF"
-    elif ! git rebase "$UPSTREAM_REF"; then
-        printf '%s\n' 'rebase 冲突处理提示：' >&2
-        printf '%s\n' '  1. 处理冲突文件；' >&2
-        printf '%s\n' '  2. git add <已解决文件>；' >&2
-        printf '%s\n' '  3. git rebase --continue；' >&2
-        printf '%s\n' '  如需放弃本次 rebase：git rebase --abort' >&2
+        run git checkout -b "$TARGET_BRANCH" "$UPSTREAM_REF"
+    elif ! git checkout -b "$TARGET_BRANCH" "$UPSTREAM_REF"; then
+        printf '%s\n' "错误：无法基于 $UPSTREAM_REMOTE/$UPSTREAM_BRANCH 创建 $TARGET_BRANCH。" >&2
         exit 1
     fi
 fi
@@ -260,7 +235,7 @@ fi
 if [ "$DRY_RUN" = "1" ]; then
     info "预演完成，未修改仓库"
 else
-    info "完成：$TARGET_BRANCH 已同步 $UPSTREAM_REMOTE/$UPSTREAM_BRANCH"
+    info "完成：$TARGET_BRANCH 已同步到 $UPSTREAM_REMOTE/$UPSTREAM_BRANCH"
     if [ "$PUSH" != "1" ]; then
         info "本次未推送 fork；需要推送时可执行：git push $PUSH_REMOTE $TARGET_BRANCH"
     fi
