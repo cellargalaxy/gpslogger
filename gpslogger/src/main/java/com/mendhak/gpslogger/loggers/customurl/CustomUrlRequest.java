@@ -100,19 +100,19 @@ public class CustomUrlRequest implements Serializable {
 
 
 
-    public String getHttpMethod(){
+    String getHttpMethod(){
         return this.httpMethod;
     }
 
-    public String getLogURL(){
+    String getLogURL(){
         return this.logURL;
     }
 
-    public HashMap<String, String> getHttpHeaders(){
+    HashMap<String, String> getHttpHeaders(){
         return this.httpHeaders;
     }
 
-    public String getHttpBody(){
+    String getHttpBody(){
         return this.httpBody;
     }
 }

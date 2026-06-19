@@ -31,6 +31,7 @@ import com.mendhak.gpslogger.loggers.gpx.Gpx10FileLogger;
 import com.mendhak.gpslogger.loggers.gpx.Gpx11FileLogger;
 import com.mendhak.gpslogger.loggers.kml.Kml22FileLogger;
 import com.mendhak.gpslogger.loggers.opengts.OpenGTSLogger;
+import com.mendhak.gpslogger.tracker.cache.TrackCacheRepository;
 
 
 import java.io.File;
@@ -99,6 +100,8 @@ public class FileLoggerFactory {
     }
 
     public static void write(Context context, Location loc) throws Exception {
+        // 本地轨迹缓存是新增旁路输出，Repository 内部吞掉异常，不影响原有写入链路。
+        TrackCacheRepository.getInstance().append(loc);
         for (FileLogger logger : getFileLoggers(context)) {
             logger.write(loc);
         }

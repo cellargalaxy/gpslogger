@@ -1264,10 +1264,6 @@ public class GpsLoggingService extends Service  {
              Systems.showErrorNotification(this, getString(R.string.could_not_write_to_file));
         }
 
-        // Travel/hiking 改造：把通过过滤后的有效点旁路写入本地轨迹缓存，供「轨迹地图」使用。
-        // 失败不抛出，绝不影响上面的 GPX/CSV/Custom URL 主链路。
-        com.mendhak.gpslogger.tracker.cache.TrackCacheRepository.getInstance().append(loc);
-
         session.clearDescription();
         EventBus.getDefault().post(new ServiceEvents.AnnotationStatus(true));
     }
