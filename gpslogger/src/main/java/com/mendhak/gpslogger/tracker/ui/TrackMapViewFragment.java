@@ -12,12 +12,16 @@
  */
 package com.mendhak.gpslogger.tracker.ui;
 
+import android.content.Context;
 import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -50,8 +54,12 @@ import org.maplibre.android.style.layers.CircleLayer;
 import org.maplibre.android.style.layers.LineLayer;
 import org.maplibre.android.style.layers.PropertyFactory;
 import org.maplibre.android.style.sources.GeoJsonSource;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 
+import java.io.IOException;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -59,6 +67,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 public class TrackMapViewFragment extends GenericViewFragment {
 
@@ -68,8 +83,13 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private static final String CURRENT_LOCATION_SOURCE_ID = "track_current_location_source";
     private static final String CURRENT_LOCATION_HALO_LAYER_ID = "track_current_location_halo_layer";
     private static final String CURRENT_LOCATION_DOT_LAYER_ID = "track_current_location_dot_layer";
+    private static final String SEARCH_RESULT_SOURCE_ID = "track_search_result_source";
+    private static final String SEARCH_RESULT_HALO_LAYER_ID = "track_search_result_halo_layer";
+    private static final String SEARCH_RESULT_DOT_LAYER_ID = "track_search_result_dot_layer";
     private static final long ALL_SEGMENTS_SELECTED = Long.MIN_VALUE;
     private static final long AUTO_CACHE_MIN_INTERVAL_MS = 5000L;
+    private static final long NOMINATIM_MIN_INTERVAL_MS = 1000L;
+    private static final OkHttpClient NOMINATIM_CLIENT = new OkHttpClient();
     private static final String FALLBACK_STYLE_JSON =
             "{\"version\":8,\"name\":\"GPSLogger Track Fallback\",\"sources\":{},\"layers\":["
                     + "{\"id\":\"background\",\"type\":\"background\","
@@ -82,6 +102,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private SwitchCompat cacheVisibleTilesSwitch;
     private MapLibreOfflineMapStore offlineMapStore;
     private ExecutorService offlineMapExecutor;
+    private Call activeSearchCall;
     private boolean basemapAvailable = true;
     private boolean fallbackStyleLoaded = false;
     private boolean statusEphemeral = false;
@@ -89,6 +110,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private boolean autoCachingVisibleRegion = false;
     private String lastCachedVisibleRegionKey = "";
     private long lastCachedVisibleRegionAtMs = 0L;
+    private long lastNominatimSearchAtMs = 0L;
     private boolean publicOsmCacheHintShown = false;
 
     private final List<String> currentSourceIds = new ArrayList<>();
@@ -110,11 +132,21 @@ public class TrackMapViewFragment extends GenericViewFragment {
         cacheVisibleTilesSwitch = root.findViewById(R.id.track_map_switch_cache_visible_tiles);
         offlineMapExecutor = Executors.newSingleThreadExecutor();
 
+        EditText searchText = root.findViewById(R.id.track_map_search_text);
+        ImageButton search = root.findViewById(R.id.track_map_btn_search);
         ImageButton refresh = root.findViewById(R.id.track_map_btn_refresh);
         ImageButton locate = root.findViewById(R.id.track_map_btn_locate);
         ImageButton fit = root.findViewById(R.id.track_map_btn_fit);
         ImageButton layer = root.findViewById(R.id.track_map_btn_layer);
 
+        search.setOnClickListener(v -> searchPlace(searchText));
+        searchText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                searchPlace(searchText);
+                return true;
+            }
+            return false;
+        });
         refresh.setOnClickListener(v -> refreshTrack(false));
         locate.setOnClickListener(v -> centerOnLatest());
         fit.setOnClickListener(v -> refreshTrack(true));
@@ -311,6 +343,146 @@ public class TrackMapViewFragment extends GenericViewFragment {
                         .build()));
         Style style = mapLibreMap.getStyle();
         if (style != null) addOrUpdateCurrentLocationIcon(style);
+    }
+
+    private void searchPlace(EditText searchText) {
+        if (searchText == null) return;
+        String query = searchText.getText() == null ? "" : searchText.getText().toString().trim();
+        if (query.length() == 0) {
+            showStatus(R.string.tracker_track_map_search_empty);
+            return;
+        }
+        if (mapLibreMap == null) {
+            showStatus(R.string.tracker_track_map_search_map_not_ready);
+            return;
+        }
+        if (activeSearchCall != null) {
+            showStatus(R.string.tracker_track_map_search_in_progress, true);
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastNominatimSearchAtMs < NOMINATIM_MIN_INTERVAL_MS) {
+            showStatus(R.string.tracker_track_map_search_wait, true);
+            return;
+        }
+
+        hideKeyboard(searchText);
+        lastNominatimSearchAtMs = now;
+        showStatus(R.string.tracker_track_map_search_in_progress, true);
+
+        String url;
+        try {
+            url = buildNominatimSearchUrl(query);
+        } catch (Throwable t) {
+            showStatus(R.string.tracker_track_map_search_failed);
+            return;
+        }
+
+        Request request = new Request.Builder()
+                .url(url)
+                .header("User-Agent", OpenStreetMapStyle.buildUserAgent(requireContext().getApplicationContext()))
+                .header("Accept", "application/json")
+                .header("Accept-Language", Locale.getDefault().toLanguageTag())
+                .build();
+
+        activeSearchCall = NOMINATIM_CLIENT.newCall(request);
+        activeSearchCall.enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                postToMapView(() -> {
+                    if (call == activeSearchCall) activeSearchCall = null;
+                    if (call.isCanceled()) return;
+                    LOG.warn("Nominatim place search failed", e);
+                    showStatus(R.string.tracker_track_map_search_failed);
+                });
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) {
+                List<SearchResult> results = new ArrayList<>();
+                String errorMessage = null;
+                try (ResponseBody body = response.body()) {
+                    if (!response.isSuccessful() || body == null) {
+                        errorMessage = "HTTP " + response.code();
+                    } else {
+                        results = parseNominatimResults(body.string());
+                    }
+                } catch (Throwable t) {
+                    LOG.warn("Nominatim place search response parse failed", t);
+                    errorMessage = t.toString();
+                }
+
+                final List<SearchResult> finalResults = results;
+                final String finalErrorMessage = errorMessage;
+                postToMapView(() -> {
+                    if (call == activeSearchCall) activeSearchCall = null;
+                    if (call.isCanceled()) return;
+                    if (finalErrorMessage != null) {
+                        LOG.warn("Nominatim place search returned {}", finalErrorMessage);
+                        showStatus(R.string.tracker_track_map_search_failed);
+                        return;
+                    }
+                    showSearchResults(finalResults);
+                });
+            }
+        });
+    }
+
+    private String buildNominatimSearchUrl(String query) throws Exception {
+        String baseUrl = TrackerPreferenceHelper.getInstance().getTrackMapNominatimSearchUrl();
+        String separator = baseUrl.contains("?") ? "&" : "?";
+        return baseUrl + separator + "format=jsonv2&limit=5&q=" + URLEncoder.encode(query, "UTF-8");
+    }
+
+    private List<SearchResult> parseNominatimResults(String responseBody) throws Exception {
+        List<SearchResult> results = new ArrayList<>();
+        JSONArray arr = new JSONArray(responseBody);
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject obj = arr.getJSONObject(i);
+            double lat = Double.parseDouble(obj.getString("lat"));
+            double lon = Double.parseDouble(obj.getString("lon"));
+            String displayName = obj.optString("display_name",
+                    String.format(Locale.US, "%.6f, %.6f", lat, lon));
+            results.add(new SearchResult(displayName, lat, lon));
+        }
+        return results;
+    }
+
+    private void showSearchResults(List<SearchResult> results) {
+        if (results == null || results.isEmpty()) {
+            showStatus(R.string.tracker_track_map_search_no_results);
+            return;
+        }
+        if (results.size() == 1) {
+            moveToSearchResult(results.get(0));
+            return;
+        }
+        String[] labels = new String[results.size()];
+        for (int i = 0; i < results.size(); i++) labels[i] = results.get(i).displayName;
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.tracker_track_map_search_results)
+                .setItems(labels, (dialog, which) -> {
+                    if (which >= 0 && which < results.size()) moveToSearchResult(results.get(which));
+                })
+                .show();
+    }
+
+    private void moveToSearchResult(SearchResult result) {
+        if (mapLibreMap == null || result == null) return;
+        LatLng target = new LatLng(result.lat, result.lon);
+        mapLibreMap.animateCamera(CameraUpdateFactory.newLatLngZoom(target,
+                Math.max(mapLibreMap.getCameraPosition().zoom, 14.0)));
+        Style style = mapLibreMap.getStyle();
+        if (style != null) addOrUpdateSearchResultMarker(style, result.lat, result.lon);
+        showStatus(getString(R.string.tracker_track_map_search_result_format, result.displayName), true);
+    }
+
+    private void hideKeyboard(View view) {
+        try {
+            InputMethodManager imm = (InputMethodManager) requireContext()
+                    .getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+        } catch (Throwable ignore) {}
     }
 
     private void moveCameraToInitialPosition() {
@@ -528,6 +700,42 @@ public class TrackMapViewFragment extends GenericViewFragment {
         }
     }
 
+    private void addOrUpdateSearchResultMarker(Style style, double lat, double lon) {
+        String geojson = toGeoJsonPoint(lat, lon);
+        try {
+            GeoJsonSource source = (GeoJsonSource) style.getSource(SEARCH_RESULT_SOURCE_ID);
+            if (source != null) {
+                source.setGeoJson(geojson);
+            } else {
+                style.addSource(new GeoJsonSource(SEARCH_RESULT_SOURCE_ID, geojson));
+            }
+            try { style.removeLayer(SEARCH_RESULT_DOT_LAYER_ID); } catch (Throwable ignore) {}
+            try { style.removeLayer(SEARCH_RESULT_HALO_LAYER_ID); } catch (Throwable ignore) {}
+
+            CircleLayer halo = new CircleLayer(SEARCH_RESULT_HALO_LAYER_ID, SEARCH_RESULT_SOURCE_ID);
+            halo.setProperties(
+                    PropertyFactory.circleColor(0xFFE53935),
+                    PropertyFactory.circleRadius(20.0f),
+                    PropertyFactory.circleOpacity(0.18f),
+                    PropertyFactory.circleStrokeColor(0xFFFFFFFF),
+                    PropertyFactory.circleStrokeWidth(2.0f)
+            );
+            style.addLayer(halo);
+
+            CircleLayer dot = new CircleLayer(SEARCH_RESULT_DOT_LAYER_ID, SEARCH_RESULT_SOURCE_ID);
+            dot.setProperties(
+                    PropertyFactory.circleColor(0xFFB71C1C),
+                    PropertyFactory.circleRadius(7.0f),
+                    PropertyFactory.circleOpacity(1.0f),
+                    PropertyFactory.circleStrokeColor(0xFFFFFFFF),
+                    PropertyFactory.circleStrokeWidth(2.5f)
+            );
+            style.addLayer(dot);
+        } catch (Throwable t) {
+            LOG.warn("Failed to draw search result marker", t);
+        }
+    }
+
     private void removeCurrentLocationIcon(Style style) {
         try { style.removeLayer(CURRENT_LOCATION_DOT_LAYER_ID); } catch (Throwable ignore) {}
         try { style.removeLayer(CURRENT_LOCATION_HALO_LAYER_ID); } catch (Throwable ignore) {}
@@ -648,6 +856,13 @@ public class TrackMapViewFragment extends GenericViewFragment {
         statusEphemeral = ephemeral;
     }
 
+    private void showStatus(String text, boolean ephemeral) {
+        if (statusText == null) return;
+        statusText.setText(text);
+        statusText.setVisibility(View.VISIBLE);
+        statusEphemeral = ephemeral;
+    }
+
     private void hideStatus() {
         statusEphemeral = false;
         if (statusText != null) statusText.setVisibility(View.GONE);
@@ -709,6 +924,10 @@ public class TrackMapViewFragment extends GenericViewFragment {
     @Override
     public void onDestroyView() {
         mapLibreMap = null;
+        if (activeSearchCall != null) {
+            activeSearchCall.cancel();
+            activeSearchCall = null;
+        }
         if (offlineMapExecutor != null) {
             offlineMapExecutor.shutdownNow();
             offlineMapExecutor = null;
@@ -736,6 +955,18 @@ public class TrackMapViewFragment extends GenericViewFragment {
 
     private interface MapViewAction {
         void run(MapView view);
+    }
+
+    private static class SearchResult {
+        final String displayName;
+        final double lat;
+        final double lon;
+
+        SearchResult(String displayName, double lat, double lon) {
+            this.displayName = displayName;
+            this.lat = lat;
+            this.lon = lon;
+        }
     }
 
     private static class RenderedSegment {

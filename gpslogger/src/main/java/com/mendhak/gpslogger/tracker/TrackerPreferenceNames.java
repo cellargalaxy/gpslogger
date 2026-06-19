@@ -14,6 +14,7 @@ public final class TrackerPreferenceNames {
     public static final String TRACK_MAP_SEGMENT_MINUTES = "track_map_segment_minutes";
     public static final String TRACK_MAP_TIME_RANGE_HOURS = "track_map_time_range_hours";
     public static final String TRACK_MAP_CACHE_VISIBLE_TILES = "track_map_cache_visible_tiles";
+    public static final String TRACK_MAP_NOMINATIM_SEARCH_URL = "track_map_nominatim_search_url";
 
 
     // 离线地图
@@ -30,6 +31,7 @@ public final class TrackerPreferenceNames {
     public static final int DEFAULT_TRACK_MAP_SEGMENT_MINUTES = 15;
     public static final int DEFAULT_TRACK_MAP_TIME_RANGE_HOURS = 24;
     public static final boolean DEFAULT_TRACK_MAP_CACHE_VISIBLE_TILES = false;
+    public static final String DEFAULT_TRACK_MAP_NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search";
     public static final String DEFAULT_OFFLINE_MAP_STYLE_URL = BUILTIN_OPENSTREETMAP_STYLE_URL;
     public static final int DEFAULT_OFFLINE_MAP_MAX_CACHE_MB = 1024;
 }

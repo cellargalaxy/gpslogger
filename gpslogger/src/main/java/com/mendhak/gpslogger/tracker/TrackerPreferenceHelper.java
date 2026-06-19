@@ -86,6 +86,17 @@ public final class TrackerPreferenceHelper {
         prefs.edit().putBoolean(TrackerPreferenceNames.TRACK_MAP_CACHE_VISIBLE_TILES, enabled).apply();
     }
 
+    public String getTrackMapNominatimSearchUrl() {
+        String s = prefs.getString(TrackerPreferenceNames.TRACK_MAP_NOMINATIM_SEARCH_URL,
+                TrackerPreferenceNames.DEFAULT_TRACK_MAP_NOMINATIM_SEARCH_URL);
+        if (s == null) return TrackerPreferenceNames.DEFAULT_TRACK_MAP_NOMINATIM_SEARCH_URL;
+        s = s.trim();
+        if (!s.startsWith("https://") && !s.startsWith("http://")) {
+            return TrackerPreferenceNames.DEFAULT_TRACK_MAP_NOMINATIM_SEARCH_URL;
+        }
+        return s;
+    }
+
 
     public String getOfflineMapStyleUrl() {
         String s = prefs.getString(TrackerPreferenceNames.OFFLINE_MAP_STYLE_URL,

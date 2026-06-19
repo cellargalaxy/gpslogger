@@ -54,6 +54,14 @@
             android:summary="@string/tracker_track_map_range_summary"
             android:dialogTitle="@string/tracker_track_map_range_title"
             app:iconSpaceReserved="false" />
+
+        <EditTextPreference
+            android:defaultValue="https://nominatim.openstreetmap.org/search"
+            android:key="track_map_nominatim_search_url"
+            android:title="@string/tracker_track_map_nominatim_url_title"
+            android:summary="@string/tracker_track_map_nominatim_url_summary"
+            android:dialogTitle="@string/tracker_track_map_nominatim_url_title"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
 

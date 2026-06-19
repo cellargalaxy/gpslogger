@@ -188,7 +188,7 @@ public final class OpenStreetMapStyle {
         return styleUrl == null ? "" : styleUrl.trim();
     }
 
-    private static String buildUserAgent(Context context) {
+    public static String buildUserAgent(Context context) {
         return "GPSLogger-Travel/" + BuildConfig.VERSION_NAME
                 + " (" + context.getPackageName()
                 + "; https://github.com/mendhak/gpslogger)";

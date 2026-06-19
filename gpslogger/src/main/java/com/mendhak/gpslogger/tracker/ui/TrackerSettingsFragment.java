@@ -13,6 +13,7 @@ import android.os.Looper;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
+import androidx.preference.EditTextPreference;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -42,6 +43,7 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
         bindSummary(TrackerPreferenceNames.TRACK_MAP_SEGMENT_MINUTES);
         bindSummary(TrackerPreferenceNames.TRACK_MAP_TIME_RANGE_HOURS);
         bindSummary(TrackerPreferenceNames.OFFLINE_MAP_MAX_CACHE_MB);
+        bindTextSummary(TrackerPreferenceNames.TRACK_MAP_NOMINATIM_SEARCH_URL);
 
         Preference clear = findPreference("tracker_clear_local_track_cache");
         if (clear != null) clear.setOnPreferenceClickListener(p -> {
@@ -86,6 +88,13 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
             bindListSummary((ListPreference) p, String.valueOf(v));
             return true;
         });
+        Preference nominatimUrl = findPreference(TrackerPreferenceNames.TRACK_MAP_NOMINATIM_SEARCH_URL);
+        if (nominatimUrl instanceof EditTextPreference) {
+            nominatimUrl.setOnPreferenceChangeListener((p, v) -> {
+                bindTextSummary((EditTextPreference) p, String.valueOf(v));
+                return true;
+            });
+        }
         Preference offlineMapMaxCache = findPreference(TrackerPreferenceNames.OFFLINE_MAP_MAX_CACHE_MB);
         if (offlineMapMaxCache != null) offlineMapMaxCache.setOnPreferenceChangeListener((p, v) -> {
             bindListSummary((ListPreference) p, String.valueOf(v));
@@ -113,6 +122,22 @@ public class TrackerSettingsFragment extends PreferenceFragmentCompat {
         Preference p = findPreference(key);
         if (p instanceof ListPreference) {
             bindListSummary((ListPreference) p, ((ListPreference) p).getValue());
+        }
+    }
+
+    private void bindTextSummary(String key) {
+        Preference p = findPreference(key);
+        if (p instanceof EditTextPreference) {
+            bindTextSummary((EditTextPreference) p, ((EditTextPreference) p).getText());
+        }
+    }
+
+    private void bindTextSummary(EditTextPreference p, String value) {
+        if (p == null) return;
+        if (value != null && !value.trim().isEmpty()) {
+            p.setSummary(value.trim());
+        } else {
+            p.setSummary(TrackerPreferenceNames.DEFAULT_TRACK_MAP_NOMINATIM_SEARCH_URL);
         }
     }
 
