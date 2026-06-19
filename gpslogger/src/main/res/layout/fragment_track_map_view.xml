@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Travel/hiking 改造：「轨迹地图」视图布局。
-  - 顶部工具栏：地名搜索 + 刷新 / 定位最新点 / 适应轨迹边界图标按钮 + 缓存视野开关
+  - 顶部工具栏：左侧选择操作分类，右侧只展示当前分类的具体操作
   - 中部 MapLibre MapView 占据剩余空间
   - 底部一行图例/状态文案
 -->
@@ -18,96 +18,122 @@
         android:orientation="horizontal"
         android:padding="4dp">
 
-        <EditText
-            android:id="@+id/track_map_search_text"
+        <Spinner
+            android:id="@+id/track_map_toolbar_mode"
+            android:layout_width="118dp"
+            android:layout_height="48dp"
+            android:entries="@array/tracker_track_map_toolbar_mode_entries" />
+
+        <LinearLayout
+            android:id="@+id/track_map_toolbar_controls"
             android:layout_width="0dp"
             android:layout_height="48dp"
             android:layout_weight="1"
-            android:hint="@string/tracker_track_map_search_hint"
-            android:imeOptions="actionSearch"
-            android:inputType="text"
-            android:maxLines="1"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:singleLine="true" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <ImageButton
-            android:id="@+id/track_map_btn_search"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/tracker_track_map_search"
-            android:padding="12dp"
-            android:scaleType="center"
-            android:src="@drawable/ic_track_map_search"
-            android:tint="?attr/colorControlNormal" />
+            <ImageButton
+                android:id="@+id/track_map_btn_refresh"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/tracker_track_map_refresh"
+                android:padding="12dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_track_map_refresh"
+                android:tint="?attr/colorControlNormal" />
 
-    </LinearLayout>
+            <ImageButton
+                android:id="@+id/track_map_btn_locate"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/tracker_track_map_locate"
+                android:padding="12dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_track_map_latest"
+                android:tint="?attr/colorControlNormal" />
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="4dp">
+            <ImageButton
+                android:id="@+id/track_map_btn_fit"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/tracker_track_map_fit"
+                android:padding="12dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_track_map_fit_bounds"
+                android:tint="?attr/colorControlNormal" />
+        </LinearLayout>
 
-        <ImageButton
-            android:id="@+id/track_map_btn_refresh"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/tracker_track_map_refresh"
-            android:padding="12dp"
-            android:scaleType="center"
-            android:src="@drawable/ic_track_map_refresh"
-            android:tint="?attr/colorControlNormal" />
-
-        <ImageButton
-            android:id="@+id/track_map_btn_locate"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/tracker_track_map_locate"
-            android:padding="12dp"
-            android:scaleType="center"
-            android:src="@drawable/ic_track_map_latest"
-            android:tint="?attr/colorControlNormal" />
-
-        <ImageButton
-            android:id="@+id/track_map_btn_fit"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/tracker_track_map_fit"
-            android:padding="12dp"
-            android:scaleType="center"
-            android:src="@drawable/ic_track_map_fit_bounds"
-            android:tint="?attr/colorControlNormal" />
-
-        <ImageButton
-            android:id="@+id/track_map_btn_layer"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/tracker_track_map_layer"
-            android:padding="12dp"
-            android:scaleType="center"
-            android:src="@drawable/ic_track_map_layers"
-            android:tint="?attr/colorControlNormal" />
-
-        <Space
+        <LinearLayout
+            android:id="@+id/track_map_toolbar_config"
             android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
-
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/track_map_switch_cache_visible_tiles"
-            android:layout_width="wrap_content"
             android:layout_height="48dp"
-            android:maxLines="1"
-            android:paddingStart="8dp"
-            android:paddingEnd="4dp"
-            android:text="@string/tracker_track_map_cache_visible_tiles" />
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/track_map_btn_layer"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/tracker_track_map_layer"
+                android:padding="12dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_track_map_layers"
+                android:tint="?attr/colorControlNormal" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/track_map_switch_cache_visible_tiles"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:maxLines="1"
+                android:paddingStart="8dp"
+                android:paddingEnd="4dp"
+                android:text="@string/tracker_track_map_cache_visible_tiles" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/track_map_toolbar_search"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/track_map_search_text"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:hint="@string/tracker_track_map_search_hint"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:maxLines="1"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:singleLine="true" />
+
+            <ImageButton
+                android:id="@+id/track_map_btn_search"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/tracker_track_map_search"
+                android:padding="12dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_track_map_search"
+                android:tint="?attr/colorControlNormal" />
+        </LinearLayout>
     </LinearLayout>
 
     <FrameLayout

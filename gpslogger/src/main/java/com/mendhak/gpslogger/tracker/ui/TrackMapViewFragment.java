@@ -21,10 +21,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -90,6 +93,9 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private static final long AUTO_CACHE_MIN_INTERVAL_MS = 5000L;
     private static final long NOMINATIM_MIN_INTERVAL_MS = 1000L;
     private static final OkHttpClient NOMINATIM_CLIENT = new OkHttpClient();
+    private static final int TOOLBAR_MODE_CONTROLS = 0;
+    private static final int TOOLBAR_MODE_CONFIG = 1;
+    private static final int TOOLBAR_MODE_SEARCH = 2;
     private static final String FALLBACK_STYLE_JSON =
             "{\"version\":8,\"name\":\"GPSLogger Track Fallback\",\"sources\":{},\"layers\":["
                     + "{\"id\":\"background\",\"type\":\"background\","
@@ -132,6 +138,10 @@ public class TrackMapViewFragment extends GenericViewFragment {
         cacheVisibleTilesSwitch = root.findViewById(R.id.track_map_switch_cache_visible_tiles);
         offlineMapExecutor = Executors.newSingleThreadExecutor();
 
+        Spinner toolbarMode = root.findViewById(R.id.track_map_toolbar_mode);
+        LinearLayout toolbarControls = root.findViewById(R.id.track_map_toolbar_controls);
+        LinearLayout toolbarConfig = root.findViewById(R.id.track_map_toolbar_config);
+        LinearLayout toolbarSearch = root.findViewById(R.id.track_map_toolbar_search);
         EditText searchText = root.findViewById(R.id.track_map_search_text);
         ImageButton search = root.findViewById(R.id.track_map_btn_search);
         ImageButton refresh = root.findViewById(R.id.track_map_btn_refresh);
@@ -151,11 +161,45 @@ public class TrackMapViewFragment extends GenericViewFragment {
         locate.setOnClickListener(v -> centerOnLatest());
         fit.setOnClickListener(v -> refreshTrack(true));
         layer.setOnClickListener(v -> showMapLayerChooser());
+        setupToolbarModeSelector(toolbarMode, toolbarControls, toolbarConfig, toolbarSearch);
         setupVisibleTileCacheSwitch();
 
         initializeMapView(mapContainer, savedInstanceState);
 
         return root;
+    }
+
+    private void setupToolbarModeSelector(Spinner toolbarMode, LinearLayout controls,
+                                          LinearLayout config, LinearLayout search) {
+        if (toolbarMode == null) return;
+        try {
+            ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(requireContext(),
+                    R.array.tracker_track_map_toolbar_mode_entries,
+                    android.R.layout.simple_spinner_item);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            toolbarMode.setAdapter(adapter);
+        } catch (Throwable t) {
+            LOG.warn("Track map toolbar mode adapter init failed", t);
+        }
+        toolbarMode.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                applyToolbarMode(position, controls, config, search);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                applyToolbarMode(TOOLBAR_MODE_CONTROLS, controls, config, search);
+            }
+        });
+        toolbarMode.setSelection(TOOLBAR_MODE_CONTROLS);
+        applyToolbarMode(TOOLBAR_MODE_CONTROLS, controls, config, search);
+    }
+
+    private void applyToolbarMode(int mode, LinearLayout controls, LinearLayout config, LinearLayout search) {
+        if (controls != null) controls.setVisibility(mode == TOOLBAR_MODE_CONTROLS ? View.VISIBLE : View.GONE);
+        if (config != null) config.setVisibility(mode == TOOLBAR_MODE_CONFIG ? View.VISIBLE : View.GONE);
+        if (search != null) search.setVisibility(mode == TOOLBAR_MODE_SEARCH ? View.VISIBLE : View.GONE);
     }
 
     private void showMapLayerChooser() {
