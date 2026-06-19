@@ -636,22 +636,19 @@ public class TrackMapViewFragment extends GenericViewFragment {
 
     private void onTileAction(TileOperation op, int x, int y, int z, int wrap, int overscaledZ, String sourceId) {
         if (op == null || isTrackOverlaySource(sourceId) || !basemapAvailable) return;
+        // 只统计，不逐块触发 UI 更新；摘要在 idle / fully-rendered 时统一展示，避免高频闪烁。
         switch (op) {
             case RequestedFromCache:
                 requestedTileFromCacheCount++;
-                showTileSourceStatus(R.string.tracker_track_map_tile_source_loading_cache, false);
                 break;
             case RequestedFromNetwork:
                 requestedTileFromNetworkCount++;
-                showTileSourceStatus(R.string.tracker_track_map_tile_source_loading_network, false);
                 break;
             case LoadFromCache:
                 loadedTileFromCacheCount++;
-                showTileSourceStatus(R.string.tracker_track_map_tile_source_cache, true);
                 break;
             case LoadFromNetwork:
                 loadedTileFromNetworkCount++;
-                showTileSourceStatus(R.string.tracker_track_map_tile_source_network, true);
                 break;
             default:
                 break;
