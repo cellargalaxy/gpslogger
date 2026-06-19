@@ -337,7 +337,9 @@ public class TrackMapViewFragment extends GenericViewFragment {
 
     private List<TrackPoint> loadPoints() {
         try {
-            int hours = TrackerPreferenceHelper.getInstance().getTrackMapTimeRangeHours();
+            TrackerPreferenceHelper prefs = TrackerPreferenceHelper.getInstance();
+            if (!prefs.isLocalTrackCacheEnabled()) return new ArrayList<>();
+            int hours = prefs.getTrackMapTimeRangeHours();
             long now = System.currentTimeMillis();
             long from = now - hours * 3600L * 1000L;
             return TrackCacheRepository.getInstance().queryRange(from, now);

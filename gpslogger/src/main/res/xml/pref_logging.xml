@@ -24,6 +24,13 @@
         android:title="@string/log_kml_title"
         app:iconSpaceReserved="false" />
 
+    <SwitchPreferenceCompat
+        android:defaultValue="true"
+        android:key="local_track_cache_enabled"
+        android:summary="@string/tracker_local_cache_enabled_summary"
+        android:title="@string/tracker_local_cache_enabled_title"
+        app:iconSpaceReserved="false" />
+
     <com.mendhak.gpslogger.ui.components.SwitchPlusClickPreference
         android:key="log_customurl_enabled"
         android:summary="@string/log_customurl_summary"
