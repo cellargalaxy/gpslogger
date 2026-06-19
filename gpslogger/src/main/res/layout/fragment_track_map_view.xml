@@ -93,17 +93,6 @@
             android:textColor="#FFFFFFFF"
             android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/track_map_tile_source_status"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|end"
-            android:layout_margin="8dp"
-            android:background="#88000000"
-            android:padding="4dp"
-            android:textColor="#FFFFFFFF"
-            android:textSize="11sp"
-            android:visibility="gone" />
     </FrameLayout>
 
     <HorizontalScrollView

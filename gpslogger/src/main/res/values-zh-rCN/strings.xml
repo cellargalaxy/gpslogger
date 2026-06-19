@@ -477,11 +477,6 @@
     <string name="tracker_track_map_status_loading_style">正在加载地图样式…</string>
     <string name="tracker_track_map_status_loading_tiles">样式已加载，正在拉取瓦片…</string>
     <string name="tracker_track_map_status_tiles_slow">瓦片加载缓慢。请检查网络，或在设置中更换地图图层。</string>
-    <string name="tracker_track_map_tile_source_loading_cache">瓦片加载中（缓存）…</string>
-    <string name="tracker_track_map_tile_source_loading_network">瓦片下载中…</string>
-    <string name="tracker_track_map_tile_source_cache">缓存瓦片</string>
-    <string name="tracker_track_map_tile_source_network">在线瓦片</string>
-    <string name="tracker_track_map_tile_source_mixed">缓存 + 在线</string>
 
     <string-array name="tracker_offline_map_layer_entries">
         <item>OpenStreetMap</item>

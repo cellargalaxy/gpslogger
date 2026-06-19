@@ -12,11 +12,7 @@
  */
 package com.mendhak.gpslogger.tracker.ui;
 
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Path;
 import android.location.Location;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -52,11 +48,8 @@ import org.maplibre.android.maps.MapView;
 import org.maplibre.android.maps.Style;
 import org.maplibre.android.style.layers.CircleLayer;
 import org.maplibre.android.style.layers.LineLayer;
-import org.maplibre.android.style.layers.Property;
 import org.maplibre.android.style.layers.PropertyFactory;
-import org.maplibre.android.style.layers.SymbolLayer;
 import org.maplibre.android.style.sources.GeoJsonSource;
-import org.maplibre.android.tile.TileOperation;
 import org.slf4j.Logger;
 
 import java.text.SimpleDateFormat;
@@ -74,13 +67,9 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private static final String SOURCE_ID_PREFIX = "track_segment_source_";
     private static final String CURRENT_LOCATION_SOURCE_ID = "track_current_location_source";
     private static final String CURRENT_LOCATION_HALO_LAYER_ID = "track_current_location_halo_layer";
-    private static final String CURRENT_LOCATION_DIRECTION_LAYER_ID = "track_current_location_direction_layer";
-    private static final String CURRENT_LOCATION_DIRECTION_IMAGE_ID = "track_current_location_direction_image";
     private static final String CURRENT_LOCATION_DOT_LAYER_ID = "track_current_location_dot_layer";
     private static final long ALL_SEGMENTS_SELECTED = Long.MIN_VALUE;
     private static final long AUTO_CACHE_MIN_INTERVAL_MS = 5000L;
-    private static final long TILE_SOURCE_STATUS_HIDE_DELAY_MS = 3000L;
-    private static final int CURRENT_LOCATION_DIRECTION_IMAGE_SIZE_PX = 96;
     private static final String FALLBACK_STYLE_JSON =
             "{\"version\":8,\"name\":\"GPSLogger Track Fallback\",\"sources\":{},\"layers\":["
                     + "{\"id\":\"background\",\"type\":\"background\","
@@ -90,7 +79,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private MapLibreMap mapLibreMap;
     private LinearLayout legendBar;
     private TextView statusText;
-    private TextView tileSourceText;
     private SwitchCompat cacheVisibleTilesSwitch;
     private MapLibreOfflineMapStore offlineMapStore;
     private ExecutorService offlineMapExecutor;
@@ -102,11 +90,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private String lastCachedVisibleRegionKey = "";
     private long lastCachedVisibleRegionAtMs = 0L;
     private boolean publicOsmCacheHintShown = false;
-    private int requestedTileFromCacheCount = 0;
-    private int requestedTileFromNetworkCount = 0;
-    private int loadedTileFromCacheCount = 0;
-    private int loadedTileFromNetworkCount = 0;
-    private long tileSourceStatusGeneration = 0L;
 
     private final List<String> currentSourceIds = new ArrayList<>();
     private final List<String> currentLayerIds = new ArrayList<>();
@@ -124,7 +107,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
         FrameLayout mapContainer = root.findViewById(R.id.track_map_container);
         legendBar = root.findViewById(R.id.track_map_legend);
         statusText = root.findViewById(R.id.track_map_status);
-        tileSourceText = root.findViewById(R.id.track_map_tile_source_status);
         cacheVisibleTilesSwitch = root.findViewById(R.id.track_map_switch_cache_visible_tiles);
         offlineMapExecutor = Executors.newSingleThreadExecutor();
 
@@ -231,9 +213,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
 
             mapView.onCreate(savedInstanceState);
             showStatus(R.string.tracker_track_map_status_loading_style, true);
-            mapView.addOnWillStartLoadingMapListener(this::resetTileSourceTracking);
-            mapView.addOnCameraWillChangeListener(animated -> resetTileSourceTracking());
-            mapView.addOnTileActionListener(this::onTileAction);
             mapView.addOnDidFailLoadingMapListener(errorMessage -> {
                 LOG.warn("Track map style failed to load: {}", errorMessage);
                 loadFallbackStyle();
@@ -254,17 +233,13 @@ public class TrackMapViewFragment extends GenericViewFragment {
             mapView.addOnDidBecomeIdleListener(() -> {
                 LOG.debug("Track map became idle");
                 if (basemapAvailable && statusEphemeral) hideStatus();
-                showTileSourceSummaryIfAny();
                 cacheVisibleRegionIfEnabled();
             });
             // addOnDidBecomeIdleListener 在部分机型上不稳定，再追加一个 RenderingMap 监听做兜底：
             // fully=true 代表所有可见瓦片已完成渲染，等价于「瓦片到位」。
             mapView.addOnDidFinishRenderingMapListener(fully -> {
                 LOG.info("Track map finished rendering, fully={}", fully);
-                if (fully && basemapAvailable) {
-                    if (statusEphemeral) hideStatus();
-                    showTileSourceSummaryIfAny();
-                }
+                if (fully && basemapAvailable && statusEphemeral) hideStatus();
             });
             mapView.getMapAsync(map -> {
                 mapLibreMap = map;
@@ -291,7 +266,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
         if (mapLibreMap == null) return;
         fallbackStyleLoaded = false;
         basemapAvailable = true;
-        resetTileSourceTracking();
         String styleUrl = TrackerPreferenceHelper.getInstance().getOfflineMapStyleUrl();
         try {
             // 内置图层走 asset:// 协议加载预打包 style.json；自定义 URL 保持原有直连行为。
@@ -314,7 +288,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
         if (mapLibreMap == null || fallbackStyleLoaded) return;
         fallbackStyleLoaded = true;
         basemapAvailable = false;
-        resetTileSourceTracking();
         try {
             mapLibreMap.setStyle(new Style.Builder().fromJson(FALLBACK_STYLE_JSON), style -> refreshTrack(true));
         } catch (Throwable t) {
@@ -529,7 +502,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
             }
             // 每次重画都把当前位置图层放回最上层，避免被新轨迹线盖住。
             try { style.removeLayer(CURRENT_LOCATION_DOT_LAYER_ID); } catch (Throwable ignore) {}
-            try { style.removeLayer(CURRENT_LOCATION_DIRECTION_LAYER_ID); } catch (Throwable ignore) {}
             try { style.removeLayer(CURRENT_LOCATION_HALO_LAYER_ID); } catch (Throwable ignore) {}
 
             CircleLayer halo = new CircleLayer(CURRENT_LOCATION_HALO_LAYER_ID, CURRENT_LOCATION_SOURCE_ID);
@@ -541,20 +513,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
                     PropertyFactory.circleStrokeWidth(2.0f)
             );
             style.addLayer(halo);
-
-            if (loc.hasBearing() && ensureCurrentLocationDirectionImage(style)) {
-                SymbolLayer direction = new SymbolLayer(CURRENT_LOCATION_DIRECTION_LAYER_ID, CURRENT_LOCATION_SOURCE_ID);
-                direction.setProperties(
-                        PropertyFactory.iconImage(CURRENT_LOCATION_DIRECTION_IMAGE_ID),
-                        PropertyFactory.iconSize(0.65f),
-                        PropertyFactory.iconRotate(normalizeBearing(loc.getBearing())),
-                        PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
-                        PropertyFactory.iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_MAP),
-                        PropertyFactory.iconAllowOverlap(true),
-                        PropertyFactory.iconIgnorePlacement(true)
-                );
-                style.addLayer(direction);
-            }
 
             CircleLayer dot = new CircleLayer(CURRENT_LOCATION_DOT_LAYER_ID, CURRENT_LOCATION_SOURCE_ID);
             dot.setProperties(
@@ -572,57 +530,8 @@ public class TrackMapViewFragment extends GenericViewFragment {
 
     private void removeCurrentLocationIcon(Style style) {
         try { style.removeLayer(CURRENT_LOCATION_DOT_LAYER_ID); } catch (Throwable ignore) {}
-        try { style.removeLayer(CURRENT_LOCATION_DIRECTION_LAYER_ID); } catch (Throwable ignore) {}
         try { style.removeLayer(CURRENT_LOCATION_HALO_LAYER_ID); } catch (Throwable ignore) {}
         try { style.removeSource(CURRENT_LOCATION_SOURCE_ID); } catch (Throwable ignore) {}
-    }
-
-    private boolean ensureCurrentLocationDirectionImage(Style style) {
-        try {
-            if (style.getImage(CURRENT_LOCATION_DIRECTION_IMAGE_ID) != null) return true;
-        } catch (Throwable ignore) {
-            // 个别版本 getImage 对缺失图片会抛异常；继续尝试注册图片。
-        }
-        try {
-            style.addImage(CURRENT_LOCATION_DIRECTION_IMAGE_ID, createCurrentLocationDirectionBitmap());
-            return true;
-        } catch (Throwable t) {
-            LOG.warn("Failed to add current location direction image", t);
-            return false;
-        }
-    }
-
-    private Bitmap createCurrentLocationDirectionBitmap() {
-        int size = CURRENT_LOCATION_DIRECTION_IMAGE_SIZE_PX;
-        float center = size / 2f;
-        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-
-        Path arrow = new Path();
-        arrow.moveTo(center, size * 0.04f);
-        arrow.lineTo(size * 0.74f, size * 0.64f);
-        arrow.lineTo(center, size * 0.50f);
-        arrow.lineTo(size * 0.26f, size * 0.64f);
-        arrow.close();
-
-        Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
-        stroke.setStyle(Paint.Style.STROKE);
-        stroke.setStrokeJoin(Paint.Join.ROUND);
-        stroke.setStrokeCap(Paint.Cap.ROUND);
-        stroke.setStrokeWidth(size * 0.08f);
-        stroke.setColor(0xFFFFFFFF);
-        canvas.drawPath(arrow, stroke);
-
-        Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        fill.setStyle(Paint.Style.FILL);
-        fill.setColor(0xFF0D47A1);
-        canvas.drawPath(arrow, fill);
-        return bitmap;
-    }
-
-    private float normalizeBearing(float bearing) {
-        float normalized = bearing % 360f;
-        return normalized < 0f ? normalized + 360f : normalized;
     }
 
     private Location getCurrentLocation() {
@@ -632,80 +541,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
             LOG.debug("No current location available for track map", t);
             return null;
         }
-    }
-
-    private void onTileAction(TileOperation op, int x, int y, int z, int wrap, int overscaledZ, String sourceId) {
-        if (op == null || isTrackOverlaySource(sourceId) || !basemapAvailable) return;
-        // 只统计，不逐块触发 UI 更新；摘要在 idle / fully-rendered 时统一展示，避免高频闪烁。
-        switch (op) {
-            case RequestedFromCache:
-                requestedTileFromCacheCount++;
-                break;
-            case RequestedFromNetwork:
-                requestedTileFromNetworkCount++;
-                break;
-            case LoadFromCache:
-                loadedTileFromCacheCount++;
-                break;
-            case LoadFromNetwork:
-                loadedTileFromNetworkCount++;
-                break;
-            default:
-                break;
-        }
-    }
-
-    private boolean isTrackOverlaySource(String sourceId) {
-        return sourceId == null
-                || sourceId.startsWith(SOURCE_ID_PREFIX)
-                || CURRENT_LOCATION_SOURCE_ID.equals(sourceId);
-    }
-
-    private void showTileSourceSummaryIfAny() {
-        if (!basemapAvailable) return;
-        int textResId = 0;
-        if (loadedTileFromCacheCount > 0 && loadedTileFromNetworkCount > 0) {
-            textResId = R.string.tracker_track_map_tile_source_mixed;
-        } else if (loadedTileFromNetworkCount > 0) {
-            textResId = R.string.tracker_track_map_tile_source_network;
-        } else if (loadedTileFromCacheCount > 0) {
-            textResId = R.string.tracker_track_map_tile_source_cache;
-        } else if (requestedTileFromCacheCount > 0 && requestedTileFromNetworkCount > 0) {
-            textResId = R.string.tracker_track_map_tile_source_mixed;
-        } else if (requestedTileFromNetworkCount > 0) {
-            textResId = R.string.tracker_track_map_tile_source_network;
-        } else if (requestedTileFromCacheCount > 0) {
-            textResId = R.string.tracker_track_map_tile_source_cache;
-        }
-        if (textResId != 0) showTileSourceStatus(textResId, true);
-    }
-
-    private void resetTileSourceTracking() {
-        requestedTileFromCacheCount = 0;
-        requestedTileFromNetworkCount = 0;
-        loadedTileFromCacheCount = 0;
-        loadedTileFromNetworkCount = 0;
-        tileSourceStatusGeneration++;
-        postToMapView(() -> {
-            if (tileSourceText != null) tileSourceText.setVisibility(View.GONE);
-        });
-    }
-
-    private void showTileSourceStatus(int textResId, boolean hideAutomatically) {
-        if (tileSourceText == null) return;
-        long generation = ++tileSourceStatusGeneration;
-        postToMapView(() -> {
-            if (tileSourceText == null) return;
-            tileSourceText.setText(textResId);
-            tileSourceText.setVisibility(View.VISIBLE);
-            if (hideAutomatically && mapView != null) {
-                mapView.postDelayed(() -> {
-                    if (generation == tileSourceStatusGeneration && tileSourceText != null) {
-                        tileSourceText.setVisibility(View.GONE);
-                    }
-                }, TILE_SOURCE_STATUS_HIDE_DELAY_MS);
-            }
-        });
     }
 
     private void cacheVisibleRegionIfEnabled() {
