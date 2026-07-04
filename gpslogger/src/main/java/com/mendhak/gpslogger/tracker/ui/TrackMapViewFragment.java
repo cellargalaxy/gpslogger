@@ -39,6 +39,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.mendhak.gpslogger.R;
+import com.mendhak.gpslogger.common.PreferenceHelper;
 import com.mendhak.gpslogger.common.Session;
 import com.mendhak.gpslogger.common.slf4j.Logs;
 import com.mendhak.gpslogger.tracker.TrackerPreferenceHelper;
@@ -58,16 +59,19 @@ import org.maplibre.android.maps.MapView;
 import org.maplibre.android.maps.Style;
 import org.maplibre.android.style.layers.CircleLayer;
 import org.maplibre.android.style.layers.LineLayer;
+import org.maplibre.android.style.layers.Property;
 import org.maplibre.android.style.layers.PropertyFactory;
 import org.maplibre.android.style.sources.GeoJsonSource;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -92,6 +96,19 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private static final String SEARCH_RESULT_SOURCE_ID = "track_search_result_source";
     private static final String SEARCH_RESULT_HALO_LAYER_ID = "track_search_result_halo_layer";
     private static final String SEARCH_RESULT_DOT_LAYER_ID = "track_search_result_dot_layer";
+    private static final String KML_LAYER_ID_PREFIX = "kml_track_layer_";
+    private static final String KML_SOURCE_ID_PREFIX = "kml_track_source_";
+    // 约定的 KML 存放目录：<gpslogger_folder>/kml/（应用外部专属目录，读取无需运行时权限）。
+    private static final String KML_SUBFOLDER = "kml";
+    // KML 轨迹配色：与历史分段调色板区分开，用于区分不同 KML 文件；再叠加虚线与历史实线区分。
+    private static final int[] KML_PALETTE = new int[]{
+            0xFF00BFA5, // teal
+            0xFFFF6D00, // deep orange
+            0xFFAA00FF, // purple
+            0xFF2962FF, // blue
+            0xFFC51162, // pink
+            0xFF64DD17  // light green
+    };
     private static final long ALL_SEGMENTS_SELECTED = Long.MIN_VALUE;
     private static final long AUTO_CACHE_MIN_INTERVAL_MS = 5000L;
     private static final long NOMINATIM_MIN_INTERVAL_MS = 1000L;
@@ -129,6 +146,10 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private final List<String> currentLayerIds = new ArrayList<>();
     private final List<RenderedSegment> renderedSegments = new ArrayList<>();
     private final List<TrackOption> trackOptions = new ArrayList<>();
+    // 已叠加的 KML 图层/源 id，以及当前展示的 KML 文件名（用于对话框回显勾选）。
+    private final List<String> kmlLayerIds = new ArrayList<>();
+    private final List<String> kmlSourceIds = new ArrayList<>();
+    private final List<String> selectedKmlFileNames = new ArrayList<>();
 
     public static TrackMapViewFragment newInstance() {
         return new TrackMapViewFragment();
@@ -156,6 +177,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
         ImageButton locate = root.findViewById(R.id.track_map_btn_locate);
         ImageButton fit = root.findViewById(R.id.track_map_btn_fit);
         ImageButton layer = root.findViewById(R.id.track_map_btn_layer);
+        ImageButton kml = root.findViewById(R.id.track_map_btn_kml);
 
         search.setOnClickListener(v -> searchPlace(searchText));
         searchText.setOnEditorActionListener((v, actionId, event) -> {
@@ -169,6 +191,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
         locate.setOnClickListener(v -> centerOnLatest());
         fit.setOnClickListener(v -> refreshTrack(true));
         layer.setOnClickListener(v -> showMapLayerChooser());
+        kml.setOnClickListener(v -> showKmlChooser());
         setupToolbarModeSelector(toolbarMode, toolbarControls, toolbarConfig, toolbarSearch, toolbarTrack);
         setupTrackSelector();
         setupVisibleTileCacheSwitch();
@@ -300,6 +323,186 @@ public class TrackMapViewFragment extends GenericViewFragment {
                     dialog.dismiss();
                 })
                 .show();
+    }
+
+    /**
+     * 弹出 KML 多选对话框：条目为约定目录下预扫描到的 *.kml 文件，
+     * 已展示的文件回显为勾选态，每条前置该文件在地图上的色块，便于对照。
+     */
+    private void showKmlChooser() {
+        if (getContext() == null) return;
+        File dir = getKmlFolder();
+        final File[] files = listKmlFiles(dir);
+        if (files.length == 0) {
+            String path = dir == null ? "" : dir.getAbsolutePath();
+            new AlertDialog.Builder(requireContext())
+                    .setTitle(R.string.tracker_track_map_kml_overlay)
+                    .setMessage(getString(R.string.tracker_track_map_kml_empty, path))
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+            return;
+        }
+
+        final CharSequence[] labels = new CharSequence[files.length];
+        final boolean[] checked = new boolean[files.length];
+        for (int i = 0; i < files.length; i++) {
+            String name = files[i].getName();
+            SpannableStringBuilder sb = new SpannableStringBuilder("■ ");
+            sb.setSpan(new ForegroundColorSpan(kmlColorForIndex(i)), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            sb.append(name);
+            labels[i] = sb;
+            checked[i] = selectedKmlFileNames.contains(name);
+        }
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle(R.string.tracker_track_map_kml_overlay)
+                .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
+                .setPositiveButton(android.R.string.ok, (dialog, w) -> {
+                    List<KmlPick> picks = new ArrayList<>();
+                    for (int i = 0; i < files.length; i++) {
+                        if (checked[i]) picks.add(new KmlPick(files[i], kmlColorForIndex(i)));
+                    }
+                    applyKmlSelection(picks);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** 记录选择、后台解析 KML，解析完回到地图线程重绘叠加层。空选择直接清空。 */
+    private void applyKmlSelection(List<KmlPick> picks) {
+        if (mapLibreMap == null || mapLibreMap.getStyle() == null) return;
+        selectedKmlFileNames.clear();
+        for (KmlPick p : picks) selectedKmlFileNames.add(p.file.getName());
+
+        if (picks.isEmpty()) {
+            removeKmlLayers(mapLibreMap.getStyle());
+            showStatus(R.string.tracker_track_map_kml_cleared, true);
+            return;
+        }
+        if (offlineMapExecutor == null) return;
+        showStatus(R.string.tracker_track_map_kml_loading, true);
+
+        final List<KmlPick> finalPicks = new ArrayList<>(picks);
+        offlineMapExecutor.execute(() -> {
+            List<KmlRender> renders = new ArrayList<>();
+            int failed = 0;
+            for (KmlPick pick : finalPicks) {
+                try {
+                    List<List<double[]>> tracks = KmlTrackReader.getTracks(pick.file);
+                    KmlRender render = new KmlRender(pick.color);
+                    for (List<double[]> line : tracks) {
+                        if (line.size() < 2) continue;
+                        render.geojsonLines.add(toGeoJsonLineString(line));
+                        render.points.addAll(line);
+                    }
+                    if (!render.geojsonLines.isEmpty()) renders.add(render);
+                } catch (Throwable t) {
+                    LOG.warn("Failed to read KML file {}", pick.file.getName(), t);
+                    failed++;
+                }
+            }
+            final int finalFailed = failed;
+            postToMapView(() -> renderKmlOverlays(renders, finalFailed));
+        });
+    }
+
+    /** 地图线程：清掉旧 KML 图层后逐文件重绘（虚线 + 各文件独立色），并把相机适应到 KML 边界。 */
+    private void renderKmlOverlays(List<KmlRender> renders, int failed) {
+        if (mapLibreMap == null) return;
+        Style style = mapLibreMap.getStyle();
+        if (style == null) return;
+        removeKmlLayers(style);
+
+        int drawn = 0;
+        LatLngBounds.Builder bounds = new LatLngBounds.Builder();
+        boolean hasBounds = false;
+        for (int f = 0; f < renders.size(); f++) {
+            KmlRender render = renders.get(f);
+            for (int p = 0; p < render.geojsonLines.size(); p++) {
+                String sourceId = KML_SOURCE_ID_PREFIX + f + "_" + p;
+                String layerId = KML_LAYER_ID_PREFIX + f + "_" + p;
+                try {
+                    style.addSource(new GeoJsonSource(sourceId, render.geojsonLines.get(p)));
+                    LineLayer layer = new LineLayer(layerId, sourceId);
+                    layer.setProperties(
+                            PropertyFactory.lineColor(render.color),
+                            PropertyFactory.lineWidth(5.0f),
+                            PropertyFactory.lineOpacity(0.95f),
+                            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                            PropertyFactory.lineDasharray(new Float[]{2.0f, 2.0f})
+                    );
+                    style.addLayer(layer);
+                    kmlSourceIds.add(sourceId);
+                    kmlLayerIds.add(layerId);
+                    drawn++;
+                } catch (Throwable t) {
+                    LOG.warn("Failed to add KML layer {}", layerId, t);
+                }
+            }
+            for (double[] ll : render.points) {
+                bounds.include(new LatLng(ll[0], ll[1]));
+                hasBounds = true;
+            }
+        }
+        // 当前定位点重新置顶，避免被 KML 线盖住。
+        addOrUpdateCurrentLocationIcon(style);
+
+        if (drawn == 0) {
+            showStatus(R.string.tracker_track_map_kml_none_valid, false);
+            return;
+        }
+        if (hasBounds) {
+            try {
+                mapLibreMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), 80));
+            } catch (Throwable ignore) {
+                // bounds 退化等极端情况忽略，图层已绘制即可。
+            }
+        }
+        if (failed > 0) {
+            showStatus(R.string.tracker_track_map_kml_failed, false);
+        } else {
+            showStatus(getString(R.string.tracker_track_map_kml_loaded, renders.size()), true);
+        }
+    }
+
+    private void removeKmlLayers(Style style) {
+        if (style == null) return;
+        for (String layerId : kmlLayerIds) {
+            try { style.removeLayer(layerId); } catch (Throwable ignore) {}
+        }
+        for (String sourceId : kmlSourceIds) {
+            try { style.removeSource(sourceId); } catch (Throwable ignore) {}
+        }
+        kmlLayerIds.clear();
+        kmlSourceIds.clear();
+    }
+
+    /** 约定的 KML 目录 <gpslogger_folder>/kml/，不存在则创建；失败返回 null。 */
+    private File getKmlFolder() {
+        try {
+            String base = PreferenceHelper.getInstance().getGpsLoggerFolder();
+            if (base == null || base.isEmpty()) return null;
+            File dir = new File(base, KML_SUBFOLDER);
+            if (!dir.exists()) dir.mkdirs();
+            return dir;
+        } catch (Throwable t) {
+            LOG.warn("Failed to resolve KML folder", t);
+            return null;
+        }
+    }
+
+    /** 列出目录下的 *.kml 文件，按文件名不区分大小写升序，保证颜色映射稳定。 */
+    private File[] listKmlFiles(File dir) {
+        if (dir == null || !dir.isDirectory()) return new File[]{};
+        File[] files = dir.listFiles((d, name) -> name.toLowerCase(Locale.US).endsWith(".kml"));
+        if (files == null) return new File[]{};
+        Arrays.sort(files, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+        return files;
+    }
+
+    private static int kmlColorForIndex(int index) {
+        return KML_PALETTE[Math.floorMod(index, KML_PALETTE.length)];
     }
 
     private void setupVisibleTileCacheSwitch() {
@@ -1066,6 +1269,28 @@ public class TrackMapViewFragment extends GenericViewFragment {
             this.layerId = layerId;
             this.color = color;
             this.label = label;
+        }
+    }
+
+    /** 用户在 KML 对话框中勾选的一个文件及其分配到的颜色。 */
+    private static class KmlPick {
+        final File file;
+        final int color;
+
+        KmlPick(File file, int color) {
+            this.file = file;
+            this.color = color;
+        }
+    }
+
+    /** 单个 KML 文件解析后的可绘制数据：颜色、各折线的 GeoJSON、用于适应边界的全部点。 */
+    private static class KmlRender {
+        final int color;
+        final List<String> geojsonLines = new ArrayList<>();
+        final List<double[]> points = new ArrayList<>();
+
+        KmlRender(int color) {
+            this.color = color;
         }
     }
 

@@ -135,7 +135,7 @@
                 android:tint="?attr/colorControlNormal" />
         </LinearLayout>
 
-        <!-- 「轨迹」分类：一个铺满宽度的分段下拉，取代原底部图例 -->
+        <!-- 「轨迹」分类：分段下拉（取代原底部图例）+ 叠加 KML 轨迹按钮 -->
         <LinearLayout
             android:id="@+id/track_map_toolbar_track"
             android:layout_width="0dp"
@@ -147,9 +147,21 @@
 
             <Spinner
                 android:id="@+id/track_map_track_selector"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="48dp"
+                android:layout_weight="1"
                 android:prompt="@string/tracker_track_map_track" />
+
+            <ImageButton
+                android:id="@+id/track_map_btn_kml"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/tracker_track_map_kml_overlay"
+                android:padding="12dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_track_map_kml"
+                android:tint="?attr/colorControlNormal" />
         </LinearLayout>
     </LinearLayout>
 
