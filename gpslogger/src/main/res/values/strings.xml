@@ -598,10 +598,13 @@
     <string name="tracker_track_map_status_loading_style">Loading map style...</string>
     <string name="tracker_track_map_status_loading_tiles">Style loaded, fetching tiles...</string>
     <string name="tracker_track_map_status_tiles_slow">Tiles are slow to load. Check your network, or change the map layer in settings.</string>
+    <string name="tracker_track_map_track">Track</string>
+    <string name="tracker_track_map_track_all">All segments</string>
     <string-array name="tracker_track_map_toolbar_mode_entries">
         <item>Controls</item>
         <item>Settings</item>
         <item>Search</item>
+        <item>Track</item>
     </string-array>
     <string-array name="tracker_segment_entries">
         <item>5 minutes</item>

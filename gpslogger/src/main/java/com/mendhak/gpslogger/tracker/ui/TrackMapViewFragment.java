@@ -4,7 +4,7 @@
  * 行为：
  * - 默认显示「现在 - 用户配置的时间范围」内的本地缓存轨迹
  * - 按用户配置的切段粒度切分并按段着色
- * - 图例可点击：默认全部高亮，点击单个图例后仅该段保持不透明
+ * - 顶部「轨迹」下拉列出各分段（色块 + 时间范围）：默认「全部分段」全部高亮，选择单个分段后仅该段保持不透明
  * - 当前定位点用醒目的圆点图标叠加展示
  * - 即使无底图（断网且未预下载离线包）也能在纯色背景上绘出轨迹线
  *
@@ -13,9 +13,12 @@
 package com.mendhak.gpslogger.tracker.ui;
 
 import android.content.Context;
-import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -96,6 +99,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private static final int TOOLBAR_MODE_CONTROLS = 0;
     private static final int TOOLBAR_MODE_CONFIG = 1;
     private static final int TOOLBAR_MODE_SEARCH = 2;
+    private static final int TOOLBAR_MODE_TRACK = 3;
     private static final String FALLBACK_STYLE_JSON =
             "{\"version\":8,\"name\":\"GPSLogger Track Fallback\",\"sources\":{},\"layers\":["
                     + "{\"id\":\"background\",\"type\":\"background\","
@@ -103,7 +107,9 @@ public class TrackMapViewFragment extends GenericViewFragment {
 
     private MapView mapView;
     private MapLibreMap mapLibreMap;
-    private LinearLayout legendBar;
+    private Spinner trackSelector;
+    private TrackOptionAdapter trackAdapter;
+    private boolean suppressTrackSelectionCallback = false;
     private TextView statusText;
     private SwitchCompat cacheVisibleTilesSwitch;
     private MapLibreOfflineMapStore offlineMapStore;
@@ -122,6 +128,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private final List<String> currentSourceIds = new ArrayList<>();
     private final List<String> currentLayerIds = new ArrayList<>();
     private final List<RenderedSegment> renderedSegments = new ArrayList<>();
+    private final List<TrackOption> trackOptions = new ArrayList<>();
 
     public static TrackMapViewFragment newInstance() {
         return new TrackMapViewFragment();
@@ -133,7 +140,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
                              @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_track_map_view, container, false);
         FrameLayout mapContainer = root.findViewById(R.id.track_map_container);
-        legendBar = root.findViewById(R.id.track_map_legend);
         statusText = root.findViewById(R.id.track_map_status);
         cacheVisibleTilesSwitch = root.findViewById(R.id.track_map_switch_cache_visible_tiles);
         offlineMapExecutor = Executors.newSingleThreadExecutor();
@@ -142,6 +148,8 @@ public class TrackMapViewFragment extends GenericViewFragment {
         LinearLayout toolbarControls = root.findViewById(R.id.track_map_toolbar_controls);
         LinearLayout toolbarConfig = root.findViewById(R.id.track_map_toolbar_config);
         LinearLayout toolbarSearch = root.findViewById(R.id.track_map_toolbar_search);
+        LinearLayout toolbarTrack = root.findViewById(R.id.track_map_toolbar_track);
+        trackSelector = root.findViewById(R.id.track_map_track_selector);
         EditText searchText = root.findViewById(R.id.track_map_search_text);
         ImageButton search = root.findViewById(R.id.track_map_btn_search);
         ImageButton refresh = root.findViewById(R.id.track_map_btn_refresh);
@@ -161,7 +169,8 @@ public class TrackMapViewFragment extends GenericViewFragment {
         locate.setOnClickListener(v -> centerOnLatest());
         fit.setOnClickListener(v -> refreshTrack(true));
         layer.setOnClickListener(v -> showMapLayerChooser());
-        setupToolbarModeSelector(toolbarMode, toolbarControls, toolbarConfig, toolbarSearch);
+        setupToolbarModeSelector(toolbarMode, toolbarControls, toolbarConfig, toolbarSearch, toolbarTrack);
+        setupTrackSelector();
         setupVisibleTileCacheSwitch();
 
         initializeMapView(mapContainer, savedInstanceState);
@@ -170,7 +179,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
     }
 
     private void setupToolbarModeSelector(Spinner toolbarMode, LinearLayout controls,
-                                          LinearLayout config, LinearLayout search) {
+                                          LinearLayout config, LinearLayout search, LinearLayout track) {
         if (toolbarMode == null) return;
         try {
             ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(requireContext(),
@@ -184,22 +193,81 @@ public class TrackMapViewFragment extends GenericViewFragment {
         toolbarMode.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                applyToolbarMode(position, controls, config, search);
+                applyToolbarMode(position, controls, config, search, track);
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-                applyToolbarMode(TOOLBAR_MODE_CONTROLS, controls, config, search);
+                applyToolbarMode(TOOLBAR_MODE_CONTROLS, controls, config, search, track);
             }
         });
         toolbarMode.setSelection(TOOLBAR_MODE_CONTROLS);
-        applyToolbarMode(TOOLBAR_MODE_CONTROLS, controls, config, search);
+        applyToolbarMode(TOOLBAR_MODE_CONTROLS, controls, config, search, track);
     }
 
-    private void applyToolbarMode(int mode, LinearLayout controls, LinearLayout config, LinearLayout search) {
+    private void applyToolbarMode(int mode, LinearLayout controls, LinearLayout config,
+                                  LinearLayout search, LinearLayout track) {
         if (controls != null) controls.setVisibility(mode == TOOLBAR_MODE_CONTROLS ? View.VISIBLE : View.GONE);
         if (config != null) config.setVisibility(mode == TOOLBAR_MODE_CONFIG ? View.VISIBLE : View.GONE);
         if (search != null) search.setVisibility(mode == TOOLBAR_MODE_SEARCH ? View.VISIBLE : View.GONE);
+        if (track != null) track.setVisibility(mode == TOOLBAR_MODE_TRACK ? View.VISIBLE : View.GONE);
+    }
+
+    /** 初始化顶部「轨迹」下拉：默认仅含「全部分段」，随刷新动态填充各分段。 */
+    private void setupTrackSelector() {
+        if (trackSelector == null) return;
+        trackAdapter = new TrackOptionAdapter(requireContext(), trackOptions);
+        trackSelector.setAdapter(trackAdapter);
+        trackSelector.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                // 重建下拉时会以编程方式设置选中项，需抑制自触发，避免误改选中态。
+                if (suppressTrackSelectionCallback) return;
+                if (position < 0 || position >= trackOptions.size()) return;
+                selectedSegmentIndex = trackOptions.get(position).segmentIndex;
+                applySegmentSelection();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+        rebuildTrackSelector();
+    }
+
+    /**
+     * 依据当前已渲染分段重建下拉项，并把选中项对齐到 selectedSegmentIndex。
+     * 需在 applySegmentSelection() 归一化选中态之后调用。
+     */
+    private void rebuildTrackSelector() {
+        if (trackSelector == null || trackAdapter == null) return;
+        trackOptions.clear();
+        trackOptions.add(new TrackOption(ALL_SEGMENTS_SELECTED, 0,
+                getString(R.string.tracker_track_map_track_all)));
+        for (RenderedSegment seg : renderedSegments) {
+            trackOptions.add(new TrackOption(seg.segmentIndex, seg.color, seg.label));
+        }
+
+        int position = 0;
+        for (int i = 0; i < trackOptions.size(); i++) {
+            if (trackOptions.get(i).segmentIndex == selectedSegmentIndex) {
+                position = i;
+                break;
+            }
+        }
+        // 选中的分段可能已不存在（如刷新后段数变化），回落到实际选项，避免选中态与下拉不一致。
+        selectedSegmentIndex = trackOptions.get(position).segmentIndex;
+
+        suppressTrackSelectionCallback = true;
+        trackAdapter.notifyDataSetChanged();
+        trackSelector.setSelection(position);
+        // setSelection 会把 onItemSelected 投递到消息队列，post 到队尾再解除抑制确保覆盖该回调。
+        trackSelector.post(() -> suppressTrackSelectionCallback = false);
+    }
+
+    /** dp 转 px，用于下拉行内边距。 */
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private void showMapLayerChooser() {
@@ -584,11 +652,11 @@ public class TrackMapViewFragment extends GenericViewFragment {
         currentLayerIds.clear();
         currentSourceIds.clear();
         renderedSegments.clear();
-        if (legendBar != null) legendBar.removeAllViews();
 
         List<TrackPoint> points = loadPoints();
         addOrUpdateCurrentLocationIcon(style);
         if (points.isEmpty()) {
+            rebuildTrackSelector();
             showStatus(R.string.tracker_track_map_empty);
             return;
         }
@@ -622,15 +690,16 @@ public class TrackMapViewFragment extends GenericViewFragment {
                 currentSourceIds.add(sourceId);
                 currentLayerIds.add(layerId);
 
-                TextView chip = addLegendChip(seg.segmentIndex, color,
-                        fmt.format(new Date(seg.startMs)) + " - " + fmt.format(new Date(seg.endMs)));
-                renderedSegments.add(new RenderedSegment(seg.segmentIndex, layerId, color, chip));
+                String label = fmt.format(new Date(seg.startMs)) + " - " + fmt.format(new Date(seg.endMs));
+                renderedSegments.add(new RenderedSegment(seg.segmentIndex, layerId, color, label));
             } catch (Throwable t) {
                 LOG.warn("Failed to add track segment layer {}", renderedIndex, t);
             }
         }
         addOrUpdateCurrentLocationIcon(style);
+        // 先归一化选中态（可能因分段变化回落到「全部分段」），再据此重建下拉。
         applySegmentSelection();
+        rebuildTrackSelector();
 
         if (fitBounds) {
             LatLngBounds.Builder b = new LatLngBounds.Builder();
@@ -643,23 +712,6 @@ public class TrackMapViewFragment extends GenericViewFragment {
                 mapLibreMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(p.lat, p.lon), 14.0));
             }
         }
-    }
-
-    private TextView addLegendChip(long segmentIndex, int color, String text) {
-        TextView chip = new TextView(getContext());
-        chip.setText("■ " + text);
-        chip.setTextColor(color);
-        chip.setPadding(12, 4, 12, 4);
-        chip.setBackgroundColor(Color.argb(40, 0, 0, 0));
-        chip.setOnClickListener(v -> {
-            selectedSegmentIndex = selectedSegmentIndex == segmentIndex ? ALL_SEGMENTS_SELECTED : segmentIndex;
-            applySegmentSelection();
-        });
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.setMarginEnd(8);
-        if (legendBar != null) legendBar.addView(chip, lp);
-        return chip;
     }
 
     private void applySegmentSelection() {
@@ -689,17 +741,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
             } catch (Throwable t) {
                 LOG.debug("Failed to update track segment opacity", t);
             }
-            if (segment.chip != null) {
-                segment.chip.setTextColor(withAlpha(segment.color, active ? 255 : 85));
-                segment.chip.setBackgroundColor(active && selectedSegmentIndex != ALL_SEGMENTS_SELECTED
-                        ? Color.argb(65, 0, 0, 0)
-                        : Color.argb(40, 0, 0, 0));
-            }
         }
-    }
-
-    private int withAlpha(int color, int alpha) {
-        return (color & 0x00FFFFFF) | ((alpha & 0xFF) << 24);
     }
 
     private void addOrUpdateCurrentLocationIcon(Style style) {
@@ -1017,13 +1059,71 @@ public class TrackMapViewFragment extends GenericViewFragment {
         final long segmentIndex;
         final String layerId;
         final int color;
-        final TextView chip;
+        final String label;
 
-        RenderedSegment(long segmentIndex, String layerId, int color, TextView chip) {
+        RenderedSegment(long segmentIndex, String layerId, int color, String label) {
             this.segmentIndex = segmentIndex;
             this.layerId = layerId;
             this.color = color;
-            this.chip = chip;
+            this.label = label;
+        }
+    }
+
+    /** 顶部「轨迹」下拉的一项：「全部分段」或某个具体分段。 */
+    private static class TrackOption {
+        final long segmentIndex;
+        final int color;
+        final String label;
+
+        TrackOption(long segmentIndex, int color, String label) {
+            this.segmentIndex = segmentIndex;
+            this.color = color;
+            this.label = label;
+        }
+    }
+
+    /**
+     * 「轨迹」下拉的自定义适配器：分段项前置对应段色的方块，时间文字沿用主题前景色以保证对比度；
+     * 「全部分段」项不显示色块。下拉展开态放大内边距/字号，便于点击与阅读。
+     */
+    private class TrackOptionAdapter extends ArrayAdapter<TrackOption> {
+        TrackOptionAdapter(Context context, List<TrackOption> data) {
+            super(context, 0, data);
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            return buildRow(position, convertView, false);
+        }
+
+        @Override
+        public View getDropDownView(int position, View convertView, ViewGroup parent) {
+            return buildRow(position, convertView, true);
+        }
+
+        private View buildRow(int position, View convertView, boolean dropDown) {
+            TextView tv = (convertView instanceof TextView) ? (TextView) convertView : new TextView(getContext());
+            tv.setSingleLine(true);
+            tv.setGravity(Gravity.CENTER_VERTICAL);
+            int padH = dp(dropDown ? 16 : 8);
+            int padV = dp(dropDown ? 14 : 6);
+            tv.setPadding(padH, padV, padH, padV);
+            tv.setTextSize(dropDown ? 16f : 14f);
+
+            TrackOption opt = getItem(position);
+            if (opt == null) {
+                tv.setText("");
+                return tv;
+            }
+            if (opt.segmentIndex == ALL_SEGMENTS_SELECTED) {
+                tv.setText(opt.label);
+            } else {
+                SpannableStringBuilder sb = new SpannableStringBuilder("■ ");
+                sb.setSpan(new ForegroundColorSpan(opt.color), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                sb.append(opt.label);
+                tv.setText(sb);
+            }
+            return tv;
         }
     }
 }

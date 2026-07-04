@@ -2,8 +2,8 @@
 <!--
   Travel/hiking 改造：「轨迹地图」视图布局。
   - 顶部工具栏：左侧选择操作分类，右侧只展示当前分类的具体操作
-  - 中部 MapLibre MapView 占据剩余空间
-  - 底部一行图例/状态文案
+    （其中「轨迹」分类下为分段下拉，取代原底部图例）
+  - 中部 MapLibre MapView 占据剩余空间，状态文案叠加在其顶部居中
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -134,6 +134,23 @@
                 android:src="@drawable/ic_track_map_search"
                 android:tint="?attr/colorControlNormal" />
         </LinearLayout>
+
+        <!-- 「轨迹」分类：一个铺满宽度的分段下拉，取代原底部图例 -->
+        <LinearLayout
+            android:id="@+id/track_map_toolbar_track"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <Spinner
+                android:id="@+id/track_map_track_selector"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:prompt="@string/tracker_track_map_track" />
+        </LinearLayout>
     </LinearLayout>
 
     <FrameLayout
@@ -153,17 +170,5 @@
             android:visibility="gone" />
 
     </FrameLayout>
-
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-        <LinearLayout
-            android:id="@+id/track_map_legend"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="4dp" />
-    </HorizontalScrollView>
 
 </LinearLayout>
