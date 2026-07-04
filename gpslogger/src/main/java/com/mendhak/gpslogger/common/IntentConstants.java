@@ -35,5 +35,7 @@ public class IntentConstants {
     public static final String LOG_ONCE = "logonce";
     public static final String SWITCH_PROFILE = "switchprofile";
     public static final String GET_STATUS = "getstatus";
+    // Travel/hiking 改造：外部打开 KML 后跳转到「轨迹地图」视图的标记。
+    public static final String SHOW_TRACK_MAP = "showtrackmap";
 
 }

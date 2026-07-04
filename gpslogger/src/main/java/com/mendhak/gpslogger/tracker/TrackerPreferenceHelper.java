@@ -138,4 +138,18 @@ public final class TrackerPreferenceHelper {
     public boolean isOfflineMapUsingPublicOpenStreetMapTiles() {
         return isOfflineMapUsingPublicTileLayer();
     }
+
+    /** 外部导入 KML 后，暂存待「轨迹地图」自动展示的文件名（一次性传递）。 */
+    public String getPendingKmlImportName() {
+        return prefs.getString(TrackerPreferenceNames.PENDING_KML_IMPORT_NAME, "");
+    }
+
+    public void setPendingKmlImportName(String name) {
+        prefs.edit().putString(TrackerPreferenceNames.PENDING_KML_IMPORT_NAME,
+                name == null ? "" : name).apply();
+    }
+
+    public void clearPendingKmlImportName() {
+        prefs.edit().remove(TrackerPreferenceNames.PENDING_KML_IMPORT_NAME).apply();
+    }
 }

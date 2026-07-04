@@ -141,6 +141,8 @@ public class TrackMapViewFragment extends GenericViewFragment {
     private long lastCachedVisibleRegionAtMs = 0L;
     private long lastNominatimSearchAtMs = 0L;
     private boolean publicOsmCacheHintShown = false;
+    // 外部导入 KML 后待自动展示的文件名；地图就绪后消费一次即清空。
+    private String pendingKmlFileName = null;
 
     private final List<String> currentSourceIds = new ArrayList<>();
     private final List<String> currentLayerIds = new ArrayList<>();
@@ -164,6 +166,17 @@ public class TrackMapViewFragment extends GenericViewFragment {
         statusText = root.findViewById(R.id.track_map_status);
         cacheVisibleTilesSwitch = root.findViewById(R.id.track_map_switch_cache_visible_tiles);
         offlineMapExecutor = Executors.newSingleThreadExecutor();
+
+        // 若由「外部打开 KML」跳转而来，取出待展示的文件名（一次性，取后即清）。
+        try {
+            String pending = TrackerPreferenceHelper.getInstance().getPendingKmlImportName();
+            if (pending != null && !pending.isEmpty()) {
+                pendingKmlFileName = pending;
+                TrackerPreferenceHelper.getInstance().clearPendingKmlImportName();
+            }
+        } catch (Throwable t) {
+            LOG.warn("Failed to read pending KML import name", t);
+        }
 
         Spinner toolbarMode = root.findViewById(R.id.track_map_toolbar_mode);
         LinearLayout toolbarControls = root.findViewById(R.id.track_map_toolbar_controls);
@@ -366,6 +379,26 @@ public class TrackMapViewFragment extends GenericViewFragment {
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    /**
+     * 外部导入 KML 后由 refreshTrack() 触发一次：在约定目录里找到该文件并自动叠加展示。
+     * 消费一次即清空 pendingKmlFileName，避免后续刷新重复触发。
+     */
+    private void autoDisplayPendingKml() {
+        if (pendingKmlFileName == null) return;
+        String name = pendingKmlFileName;
+        pendingKmlFileName = null;
+        File[] files = listKmlFiles(getKmlFolder());
+        for (int i = 0; i < files.length; i++) {
+            if (files[i].getName().equals(name)) {
+                List<KmlPick> picks = new ArrayList<>();
+                picks.add(new KmlPick(files[i], kmlColorForIndex(i)));
+                applyKmlSelection(picks);
+                return;
+            }
+        }
+        LOG.warn("Pending KML file not found in folder: {}", name);
     }
 
     /** 记录选择、后台解析 KML，解析完回到地图线程重绘叠加层。空选择直接清空。 */
@@ -858,6 +891,8 @@ public class TrackMapViewFragment extends GenericViewFragment {
 
         List<TrackPoint> points = loadPoints();
         addOrUpdateCurrentLocationIcon(style);
+        // KML 叠加与历史点无关：即便无历史轨迹，也要把外部导入的 KML 展示出来。
+        autoDisplayPendingKml();
         if (points.isEmpty()) {
             rebuildTrackSelector();
             showStatus(R.string.tracker_track_map_empty);

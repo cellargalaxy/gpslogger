@@ -15,6 +15,8 @@ public final class TrackerPreferenceNames {
     public static final String TRACK_MAP_TIME_RANGE_HOURS = "track_map_time_range_hours";
     public static final String TRACK_MAP_CACHE_VISIBLE_TILES = "track_map_cache_visible_tiles";
     public static final String TRACK_MAP_NOMINATIM_SEARCH_URL = "track_map_nominatim_search_url";
+    // 外部导入 KML 后，待「轨迹地图」打开时自动展示的文件名（一次性传递，消费后清空）
+    public static final String PENDING_KML_IMPORT_NAME = "pending_kml_import_name";
 
 
     // 离线地图

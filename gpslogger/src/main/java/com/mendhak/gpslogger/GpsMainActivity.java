@@ -78,6 +78,7 @@ import androidx.fragment.app.FragmentTransaction;
 
 import com.amulyakhare.textdrawable.TextDrawable;
 import com.mendhak.gpslogger.common.EventBusHook;
+import com.mendhak.gpslogger.common.IntentConstants;
 import com.mendhak.gpslogger.common.PreferenceHelper;
 import com.mendhak.gpslogger.common.PreferenceNames;
 import com.mendhak.gpslogger.common.Session;
@@ -163,6 +164,8 @@ public class GpsMainActivity extends AppCompatActivity
         setUpNavigationDrawer(savedInstanceState);
 
         loadDefaultFragmentView();
+        // 外部打开 KML 进来时，本次启动直接切到「轨迹地图」视图（不改动用户默认视图偏好）。
+        handleShowTrackMapIntent(getIntent());
 
 
         if(!Systems.hasUserGrantedAllNecessaryPermissions(this)){
@@ -188,6 +191,24 @@ public class GpsMainActivity extends AppCompatActivity
                 logSinglePoint();
             }
         }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // singleTask 复用已有实例时，新 Intent 从这里到达；更新后再判定是否切到轨迹地图。
+        setIntent(intent);
+        handleShowTrackMapIntent(intent);
+    }
+
+    /** 若 Intent 带 SHOW_TRACK_MAP 标记（外部导入 KML 触发），切到「轨迹地图」视图（position 5）。 */
+    private void handleShowTrackMapIntent(Intent intent) {
+        if (intent == null || !intent.getBooleanExtra(IntentConstants.SHOW_TRACK_MAP, false)) {
+            return;
+        }
+        // 消费一次即清掉标记，避免旋转/重建时重复触发。
+        intent.removeExtra(IntentConstants.SHOW_TRACK_MAP);
+        loadFragmentView(5);
     }
 
     private final ActivityResultLauncher<String> backgroundPermissionLauncher =

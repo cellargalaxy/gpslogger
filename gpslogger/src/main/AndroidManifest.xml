@@ -245,6 +245,36 @@
             </intent-filter>
         </activity>
 
+        <!-- Travel/hiking 改造：在文件管理器中「打开 KML」时可选 GPSLogger，导入并在轨迹地图展示 -->
+        <activity
+            android:name=".tracker.ui.KmlImportActivity"
+            android:exported="true"
+            android:label="@string/tracker_track_map_kml_overlay"
+            android:theme="@style/Theme.AppCompat.Translucent"
+            android:excludeFromRecents="true">
+            <!-- 按 KML 标准 MIME 匹配（多数文件管理器可识别 .kml） -->
+            <intent-filter android:label="@string/tracker_track_map_kml_overlay">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.google-earth.kml+xml" />
+            </intent-filter>
+            <!-- 兜底：按 .kml 扩展名匹配（部分管理器把 MIME 报成 */* 或 octet-stream） -->
+            <intent-filter android:label="@string/tracker_track_map_kml_overlay">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.kml" />
+                <data android:pathPattern=".*\\..*\\.kml" />
+            </intent-filter>
+        </activity>
+
     </application>
 
 </manifest>
