@@ -283,7 +283,9 @@ public class TrackMapViewFragment extends GenericViewFragment {
         trackOptions.clear();
         trackOptions.add(new TrackOption(ALL_SEGMENTS_SELECTED, 0,
                 getString(R.string.tracker_track_map_track_all)));
-        for (RenderedSegment seg : renderedSegments) {
+        // 降序：renderedSegments 为时间升序，倒序遍历使越靠近现在的分段排在越前面。
+        for (int i = renderedSegments.size() - 1; i >= 0; i--) {
+            RenderedSegment seg = renderedSegments.get(i);
             trackOptions.add(new TrackOption(seg.segmentIndex, seg.color, seg.label));
         }
 
@@ -929,7 +931,9 @@ public class TrackMapViewFragment extends GenericViewFragment {
         long segmentMillis = segmentMinutes * 60L * 1000L;
 
         List<TrackSegmenter.Segment> segments = TrackSegmenter.segment(points, segmentMillis);
-        SimpleDateFormat fmt = new SimpleDateFormat("HH:mm", Locale.getDefault());
+        // 图例文案「DD-HH:MM-HH:MM」：起点带「日-时:分」，终点仅「时:分」。
+        SimpleDateFormat startFmt = new SimpleDateFormat("dd-HH:mm", Locale.getDefault());
+        SimpleDateFormat endFmt = new SimpleDateFormat("HH:mm", Locale.getDefault());
 
         for (TrackSegmenter.Segment seg : segments) {
             if (seg.points.size() < 2) continue;
@@ -952,7 +956,7 @@ public class TrackMapViewFragment extends GenericViewFragment {
                 currentSourceIds.add(sourceId);
                 currentLayerIds.add(layerId);
 
-                String label = fmt.format(new Date(seg.startMs)) + " - " + fmt.format(new Date(seg.endMs));
+                String label = startFmt.format(new Date(seg.startMs)) + "-" + endFmt.format(new Date(seg.endMs));
                 renderedSegments.add(new RenderedSegment(seg.segmentIndex, layerId, color, label));
             } catch (Throwable t) {
                 LOG.warn("Failed to add track segment layer {}", renderedIndex, t);
