@@ -359,6 +359,27 @@ public class Files {
         return volumeName;
     }
 
+    /**
+     * Open the given folder in the system file manager (DocumentsUI), starting at that location.
+     * Returns false if no app can handle it, so callers can fall back (e.g. show the path).
+     */
+    @RequiresApi(Build.VERSION_CODES.R)
+    public static boolean openFolderInFileManager(Context context, File folder){
+        try {
+            Uri folderUri = getDocumentUriFromFileUri(context, folder);
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(folderUri, "vnd.android.document/directory");
+            intent.addCategory(Intent.CATEGORY_DEFAULT);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, folderUri);
+            context.startActivity(intent);
+            return true;
+        } catch (Throwable t) {
+            LOG.warn("Could not open folder in file manager: {}", folder, t);
+            return false;
+        }
+    }
+
     @RequiresApi(Build.VERSION_CODES.R)
     public static void setFilePathAsClickableLink(Context context, TextView txtFilename, String gpsLoggerFolder){
         txtFilename.setTextIsSelectable(true);
@@ -367,17 +388,7 @@ public class Files {
         ClickableSpan clickSpan = new ClickableSpan() {
             @Override
             public void onClick(@NonNull View view) {
-                File file = new File(gpsLoggerFolder);
-
-                Uri convertedUri = getDocumentUriFromFileUri(context, file);
-                Intent intent = new Intent(Intent.ACTION_VIEW);
-                Uri folderUri = Uri.parse(convertedUri.toString());
-                intent.setDataAndType(folderUri, "vnd.android.document/directory");
-                intent.addCategory(Intent.CATEGORY_DEFAULT);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, folderUri);
-
-                context.startActivity(intent);
+                openFolderInFileManager(context, new File(gpsLoggerFolder));
             }
         };
 

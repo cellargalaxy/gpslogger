@@ -14,6 +14,7 @@ package com.mendhak.gpslogger.tracker.ui;
 
 import android.content.Context;
 import android.location.Location;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
@@ -32,6 +33,7 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -45,6 +47,7 @@ import com.mendhak.gpslogger.common.slf4j.Logs;
 import com.mendhak.gpslogger.tracker.TrackerPreferenceHelper;
 import com.mendhak.gpslogger.tracker.cache.TrackCacheRepository;
 import com.mendhak.gpslogger.tracker.db.TrackPoint;
+import com.mendhak.gpslogger.loggers.Files;
 import com.mendhak.gpslogger.tracker.offline.MapLibreOfflineMapStore;
 import com.mendhak.gpslogger.tracker.offline.OpenStreetMapStyle;
 import com.mendhak.gpslogger.ui.fragments.display.GenericViewFragment;
@@ -351,6 +354,8 @@ public class TrackMapViewFragment extends GenericViewFragment {
             new AlertDialog.Builder(requireContext())
                     .setTitle(R.string.tracker_track_map_kml_overlay)
                     .setMessage(getString(R.string.tracker_track_map_kml_empty, path))
+                    .setNeutralButton(R.string.tracker_track_map_kml_open_folder,
+                            (dialog, w) -> openKmlFolderInFileManager())
                     .setPositiveButton(android.R.string.ok, null)
                     .show();
             return;
@@ -377,8 +382,27 @@ public class TrackMapViewFragment extends GenericViewFragment {
                     }
                     applyKmlSelection(picks);
                 })
+                .setNeutralButton(R.string.tracker_track_map_kml_open_folder,
+                        (dialog, w) -> openKmlFolderInFileManager())
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    /** 在系统文件管理器中打开 KML 约定目录，便于用户直接管理文件。 */
+    private void openKmlFolderInFileManager() {
+        File dir = getKmlFolder();
+        if (dir == null || getContext() == null) return;
+        boolean opened = false;
+        // Files.openFolderInFileManager 基于 DocumentsContract，要求 Android 11(R) 及以上。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            opened = Files.openFolderInFileManager(requireContext(), dir);
+        }
+        if (!opened) {
+            // 低版本或无可用文件管理器时，退回把路径提示给用户。
+            Toast.makeText(requireContext(),
+                    getString(R.string.tracker_track_map_kml_folder_path, dir.getAbsolutePath()),
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     /**
